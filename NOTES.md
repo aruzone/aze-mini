@@ -12,4 +12,10 @@ nest g resource products
 nest serve
 
 nx dev aze-client
+
+
+### Prisma
+npx prisma init
+npx prisma migrate dev
+npx prisma generate
 ```

@@ -71,7 +71,7 @@ Backend → [http://localhost:3030/api](http://localhost:3030/api)
 ### Run Aze App Frontend
 
 ```
-nx aze-client
+nx dev aze-client
 ```
 Frontend → [http://localhost:3000](http://localhost:3000)
 

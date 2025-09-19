@@ -3,18 +3,18 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 
 type AuthInput = {
-  username: string;
+  email: string;
   password: string;
 };
 
 type SignInData = {
   userId: string;
-  username: string;
+  email: string;
 };
 
 type AuthResult = {
   userId: string;
-  username: string;
+  email: string;
   accessToken: string;
 };
 
@@ -34,21 +34,21 @@ export class AuthService {
   }
 
   async validateUser(authInput: AuthInput): Promise<SignInData | null> {
-    const user = await this.usersService.findUserByName(authInput.username);
+    const user = await this.usersService.findUserByEmail(authInput.email);
 
     if (user && user.password === authInput.password) {
-      return { userId: user.userId.toString(), username: user.username };
+      return { userId: user.id.toString(), email: user.email };
     }
 
     return null;
   }
 
   async login(user: SignInData): Promise<AuthResult> {
-    const payload = { username: user.username, sub: user.userId };
+    const payload = { email: user.email, sub: user.userId };
     return {
       accessToken: this.jwtService.sign(payload),
       userId: user.userId,
-      username: user.username,
+      email: user.email,
     };
   }
 }

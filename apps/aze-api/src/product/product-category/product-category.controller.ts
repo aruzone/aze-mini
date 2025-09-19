@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { ProductCategoryService } from './product-category.service';
 import { Prisma } from '../../../generated/prisma';
+import { ApiKeyGuard } from '../../config/guards/api-key.guard';
+import { AuthGuard } from '../../config/guards/auth.guard';
 
-@Controller('product-category')
+@Controller('categories')
 export class ProductCategoryController {
   constructor(private readonly productCategoryService: ProductCategoryService) {}
 
+  @UseGuards(ApiKeyGuard, AuthGuard)
   @Post()
   create(@Body() createProductCategoryDto: Prisma.ProductCreateInput) {
     return this.productCategoryService.create(createProductCategoryDto);
@@ -21,11 +24,13 @@ export class ProductCategoryController {
     return this.productCategoryService.findOne(+id);
   }
 
+  @UseGuards(ApiKeyGuard, AuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateProductCategoryDto: Prisma.ProductCategoryUpdateInput) {
     return this.productCategoryService.update(+id, updateProductCategoryDto);
   }
 
+  @UseGuards(ApiKeyGuard, AuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productCategoryService.remove(+id);

@@ -1,25 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma';
+import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class ProductCategoryService {
+  constructor(private readonly databaseService: DatabaseService) {}
+
   create(createProductCategoryDto: Prisma.ProductCategoryCreateInput) {
-    return 'This action adds a new productCategory';
+    return this.databaseService.productCategory.create({
+      data: createProductCategoryDto,
+    });
   }
 
   findAll() {
-    return `This action returns all productCategory`;
+    return this.databaseService.productCategory.findMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} productCategory`;
+  async findOne(id: number) {
+    const productCategory =
+      await this.databaseService.productCategory.findUnique({ where: { id } });
+    if (!productCategory) {
+      throw new NotFoundException(`Product category with ID ${id} not found`);
+    }
+    return productCategory;
   }
 
-  update(id: number, updateProductCategoryDto: Prisma.ProductCategoryUpdateInput) {
-    return `This action updates a #${id} productCategory`;
+  update(
+    id: number,
+    updateProductCategoryDto: Prisma.ProductCategoryUpdateInput
+  ) {
+    return this.databaseService.productCategory.update({
+      where: { id },
+      data: updateProductCategoryDto,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} productCategory`;
+    return this.databaseService.productCategory.delete({ where: { id } });
   }
 }

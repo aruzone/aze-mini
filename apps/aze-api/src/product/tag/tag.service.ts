@@ -1,25 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma';
+import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class TagService {
+  constructor(private readonly databaseService: DatabaseService) {}
+
   create(createTagDto: Prisma.TagCreateInput) {
-    return 'This action adds a new tag';
+    return this.databaseService.tag.create({ data: createTagDto });
   }
 
   findAll() {
-    return `This action returns all tag`;
+    return this.databaseService.tag.findMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} tag`;
+  async findOne(id: number) {
+    const tag = await this.databaseService.tag.findUnique({
+      where: { id: id.toString() },
+    });
+    if (!tag) {
+      throw new NotFoundException(`Tag with ID ${id} not found`);
+    }
+    return tag;
   }
 
   update(id: number, updateTagDto: Prisma.TagUpdateInput) {
-    return `This action updates a #${id} tag`;
+    return this.databaseService.tag.update({
+      where: { id: id.toString() },
+      data: updateTagDto,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} tag`;
+    return this.databaseService.tag.delete({ where: { id: id.toString() } });
   }
 }

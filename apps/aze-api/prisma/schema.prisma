@@ -26,9 +26,7 @@ model User {
 model ProductCategory {
   id   Int    @id @default(autoincrement())
   name String @unique
-  products Product[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  products Product[] // One-to-many relation with Product
 }
 
 model Product {
@@ -36,7 +34,7 @@ model Product {
   name        String
   description String?
   price       Float
-  categoryId  Int @unique
+  categoryId  Int // Foreign key to ProductCategory
   category    ProductCategory @relation(fields: [categoryId], references: [id])
   reviews     Review[]
   tags        Tag[]
@@ -44,37 +42,19 @@ model Product {
   updatedAt   DateTime @updatedAt
 }
 
+// One-to-many example
 model Review {
   id        String   @id @default(uuid(7))
-  rating    Int      // 1 to 5 typically
+  rating    Int
   comment   String?
   productId String
   product   Product  @relation(fields: [productId], references: [id])
   createdAt DateTime @default(now())
 }
 
+// Many-to-many example
 model Tag {
   id        String       @id @default(uuid(7))
   name      String       @unique
-  products  Product[]    // Many-to-many via join table
+  products  Product[]
 }
-
-// model ProductTag {
-//   productId String
-//   tagId     String
-//   product   Product @relation(fields: [productId], references: [id])
-//   tag       Tag     @relation(fields: [tagId], references: [id])
-
-//   @@id([productId, tagId]) // Composite primary key for many-to-many
-// }
-
-// ELECTRONICS
-// FASHION
-// HOME
-// BEAUTY
-// SPORTS
-// TOYS
-// BOOKS
-// MUSIC
-// GAMES
-// OTHER

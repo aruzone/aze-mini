@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '../../generated/prisma';
+import { Prisma } from '../../../generated/prisma';
 
 @Injectable()
 export class ProductsService {

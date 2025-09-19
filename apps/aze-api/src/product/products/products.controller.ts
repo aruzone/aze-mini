@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, DefaultValuePipe, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { Prisma } from '../../generated/prisma';
-import { ApiKeyGuard } from '../config/guards/api-key.guard';
-import { AuthGuard } from '../config/guards/auth.guard';
-import { IsPositivePipe } from '../config/pipes/is-positive.pipe';
+import { Prisma } from '../../../generated/prisma';
+import { ApiKeyGuard } from '../../config/guards/api-key.guard';
+import { AuthGuard } from '../../config/guards/auth.guard';
+import { IsPositivePipe } from '../../config/pipes/is-positive.pipe';
 
 @Controller('products')
 export class ProductsController {

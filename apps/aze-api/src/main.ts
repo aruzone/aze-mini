@@ -20,7 +20,7 @@ async function bootstrap() {
     credentials: true, 
   });
 
-  app.useGlobalFilters(new PrismaFilter());
+  // app.useGlobalFilters(new PrismaFilter());
 
   const port = process.env.PORT || 3030;
   await app.listen(port);

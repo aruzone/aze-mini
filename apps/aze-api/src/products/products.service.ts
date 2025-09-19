@@ -18,7 +18,7 @@ export class ProductsService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const product = await this.databaseService.product.findUnique({ where: { id } });
     if(!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
@@ -26,14 +26,22 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: number, updateProductDto: Prisma.ProductUpdateInput) {
+  async update(id: string, updateProductDto: Prisma.ProductUpdateInput) {
     return this.databaseService.product.update({
       where: { id },
       data: updateProductDto,
     });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     return this.databaseService.product.delete({ where: { id } });
   }
+
+  // async createCategory(createCategoryDto: Prisma.ProductCategoriesCreateInput) {
+  //   return this.databaseService.productCategories.create({ data: createCategoryDto });
+  // }
+
+  // async findAllCategories() {
+  //   return this.databaseService.productCategories.findUnique({ where: { id: 1 } });
+  // }
 }

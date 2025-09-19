@@ -15,7 +15,7 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid(7))
   email     String   @unique
   name      String?
   password  String
@@ -23,25 +23,58 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+model ProductCategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  products Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          String @id @default(uuid(7))
   name        String
   description String?
   price       Float
-  category    ProductCategories
+  categoryId  Int @unique
+  category    ProductCategory @relation(fields: [categoryId], references: [id])
+  reviews     Review[]
+  tags        Tag[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-enum ProductCategories {
-  ELECTRONICS
-  FASHION
-  HOME
-  BEAUTY
-  SPORTS
-  TOYS
-  BOOKS
-  MUSIC
-  GAMES
-  OTHER
+model Review {
+  id        String   @id @default(uuid(7))
+  rating    Int      // 1 to 5 typically
+  comment   String?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
 }
+
+model Tag {
+  id        String       @id @default(uuid(7))
+  name      String       @unique
+  products  Product[]    // Many-to-many via join table
+}
+
+// model ProductTag {
+//   productId String
+//   tagId     String
+//   product   Product @relation(fields: [productId], references: [id])
+//   tag       Tag     @relation(fields: [tagId], references: [id])
+
+//   @@id([productId, tagId]) // Composite primary key for many-to-many
+// }
+
+// ELECTRONICS
+// FASHION
+// HOME
+// BEAUTY
+// SPORTS
+// TOYS
+// BOOKS
+// MUSIC
+// GAMES
+// OTHER

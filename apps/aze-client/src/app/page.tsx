@@ -1,3 +1,4 @@
+import Image from "next/image";
 import MyComponent from "../components/MyComponent";
 
 export default function Index() {
@@ -10,16 +11,20 @@ export default function Index() {
     <div>
       <div className="wrapper">
         <div className="container">
-          <div id="welcome">
-            <h1>
-              <span> Hello there, </span>
-              Welcome aze-client 👋
-            </h1>
+          <div id="welcome" className="mx-auto">
+            <Image
+              src="/assets/aze-logo.png"
+              alt="Welcome"
+              width={200}
+              height={100}
+            />
+          </div>
+          <div id="products">
             <MyComponent />
           </div>
 
           <p id="love">
-            Carefully crafted with
+            Carefully crafted the <strong>Aze</strong> way
             <svg
               fill="currentColor"
               stroke="none"

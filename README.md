@@ -61,7 +61,12 @@ npm install
 
 ```
 # CREATE BACKEND ENV FILE
-cp apps/aze-api/.env.example apps/aze-api/.env
+cd apps/aze-api
+cp .env.example .env
+
+# CREATE PRISMA SQLITE DB
+npx prisma migrate dev
+npx prisma generate
 
 # RUN BACKEND
 nx serve aze-api

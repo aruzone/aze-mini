@@ -16,18 +16,18 @@ export class ReviewController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.reviewService.findOne(+id);
+    return this.reviewService.findOne(id);
   }
 
   @UseGuards(ApiKeyGuard, AuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateReviewDto: Prisma.ReviewUpdateInput) {
-    return this.reviewService.update(+id, updateReviewDto);
+    return this.reviewService.update(id, updateReviewDto);
   }
 
   @UseGuards(ApiKeyGuard, AuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.reviewService.remove(+id);
+    return this.reviewService.remove(id);
   }
 }

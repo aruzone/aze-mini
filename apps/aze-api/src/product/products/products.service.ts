@@ -36,12 +36,4 @@ export class ProductsService {
   async remove(id: string) {
     return this.databaseService.product.delete({ where: { id } });
   }
-
-  // async createCategory(createCategoryDto: Prisma.ProductCategoriesCreateInput) {
-  //   return this.databaseService.productCategories.create({ data: createCategoryDto });
-  // }
-
-  // async findAllCategories() {
-  //   return this.databaseService.productCategories.findUnique({ where: { id: 1 } });
-  // }
 }

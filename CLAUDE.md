@@ -67,8 +67,8 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
 - `src/database/` — `DatabaseService` extends `PrismaClient`; injected into all services
 - `src/config/` — App config, guards, pipes, filters:
   - `auth.guard.ts` — JWT bearer token guard; attaches `req.user`
-  - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var
-  - `prisma.filter.ts` — Global exception filter for Prisma errors (currently commented out in `main.ts`)
+  - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure
+  - `prisma.filter.ts` — Global exception filter for Prisma errors (active in `main.ts`)
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
 
 **Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app.

@@ -21,18 +21,18 @@ export class TagController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.tagService.findOne(+id);
+    return this.tagService.findOne(id);
   }
 
   @UseGuards(ApiKeyGuard, AuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateTagDto: Prisma.TagUpdateInput) {
-    return this.tagService.update(+id, updateTagDto);
+    return this.tagService.update(id, updateTagDto);
   }
 
   @UseGuards(ApiKeyGuard, AuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.tagService.remove(+id);
+    return this.tagService.remove(id);
   }
 }

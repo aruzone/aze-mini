@@ -39,15 +39,4 @@ export class ProductsController {
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
-
-  // @UseGuards(ApiKeyGuard, AuthGuard)
-  // @Post('categories')
-  // createCategory(@Body() createCategoryDto: Prisma.ProductCategoriesCreateInput) {
-  //   return this.productsService.createCategory(createCategoryDto);
-  // }
-  
-  // @Get('categories')
-  // findAllCategories() {
-  //   return this.productsService.findAllCategories();
-  // }
 }

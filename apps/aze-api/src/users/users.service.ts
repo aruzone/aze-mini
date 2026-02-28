@@ -1,35 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma';
-import { PrismaClient } from '../../generated/prisma';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class UsersService {
-  private prisma = new PrismaClient();
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async create(createUserDto: Prisma.UserCreateInput) {
-    return this.prisma.user.create({ data: createUserDto });
+    return this.databaseService.user.create({ data: createUserDto });
   }
 
   async findAll() {
-    return this.prisma.user.findMany();
+    return this.databaseService.user.findMany();
   }
 
   async findOne(id: number) {
-    return this.prisma.user.findUnique({ where: { id: String(id) } });
+    return this.databaseService.user.findUnique({ where: { id: String(id) } });
   }
 
   async findUserByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.databaseService.user.findUnique({ where: { email } });
   }
 
   async update(id: number, updateUserDto: Prisma.UserUpdateInput) {
-    return this.prisma.user.update({
+    return this.databaseService.user.update({
       where: { id: String(id) },
       data: updateUserDto,
     });
   }
 
   async remove(id: number) {
-    return this.prisma.user.delete({ where: { id: String(id) } });
+    return this.databaseService.user.delete({ where: { id: String(id) } });
   }
 }

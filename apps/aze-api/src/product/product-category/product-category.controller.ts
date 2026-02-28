@@ -10,7 +10,7 @@ export class ProductCategoryController {
 
   @UseGuards(ApiKeyGuard, AuthGuard)
   @Post()
-  create(@Body() createProductCategoryDto: Prisma.ProductCreateInput) {
+  create(@Body() createProductCategoryDto: Prisma.ProductCategoryCreateInput) {
     return this.productCategoryService.create(createProductCategoryDto);
   }
 

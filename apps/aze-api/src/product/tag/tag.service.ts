@@ -14,9 +14,9 @@ export class TagService {
     return this.databaseService.tag.findMany();
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const tag = await this.databaseService.tag.findUnique({
-      where: { id: id.toString() },
+      where: { id },
     });
     if (!tag) {
       throw new NotFoundException(`Tag with ID ${id} not found`);
@@ -24,14 +24,14 @@ export class TagService {
     return tag;
   }
 
-  update(id: number, updateTagDto: Prisma.TagUpdateInput) {
+  update(id: string, updateTagDto: Prisma.TagUpdateInput) {
     return this.databaseService.tag.update({
-      where: { id: id.toString() },
+      where: { id },
       data: updateTagDto,
     });
   }
 
-  remove(id: number) {
-    return this.databaseService.tag.delete({ where: { id: id.toString() } });
+  remove(id: string) {
+    return this.databaseService.tag.delete({ where: { id } });
   }
 }

@@ -46,3 +46,7 @@ Thumbs.db
 # Next.js
 .next
 out
+# Local env files (never commit real secrets)
+.env
+.env.local
+!.env.example

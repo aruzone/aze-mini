@@ -50,7 +50,7 @@
 |---|---|---|
 | Prisma ORM | ^6.16.2 | Schema management, migrations, typed queries |
 | `@prisma/client` | ^6.16.2 | Generated database client |
-| SQLite | — | Embedded relational database (via `DATABASE_URL=file:./dev.db`) |
+| Postgres | 18 (alpine) | Relational database, run via `docker compose up -d` (see `docs/adr/0001-postgres-only.md`) |
 
 ---
 

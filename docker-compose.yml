@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: aze-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aze
+      # Local development only. This password is public — it is committed to
+      # this repository. Replace it before running this file anywhere but your
+      # own machine.
+      POSTGRES_PASSWORD: aze_local_password
+      POSTGRES_DB: aze
+    # Bound to the loopback interface deliberately: published as '5432:5432'
+    # this would be reachable from the whole network with a password anyone
+    # can read on GitHub.
+    ports:
+      - '127.0.0.1:5432:5432'
+    # Postgres 18+ expects a single mount at /var/lib/postgresql, not at
+    # /var/lib/postgresql/data — it stores data in a versioned subdirectory.
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aze -d aze']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

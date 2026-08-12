@@ -4,13 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Aze Starter is a full-stack monorepo using **Nx**, **Next.js** (frontend), **NestJS** (backend), and **Prisma** with SQLite.
+Aze Starter is a full-stack monorepo using **Nx**, **Next.js** (frontend), **NestJS** (backend), and **Prisma** with Postgres.
 
 ## Commands
 
 ### Setup (first-time)
 ```bash
 npm install
+
+# Start Postgres (required — there is no file-based fallback, see docs/adr/0001)
+# --wait blocks until the healthcheck passes; without it the migrate below races startup
+docker compose up -d --wait
 
 # Backend: copy env and init database
 cd apps/aze-api
@@ -74,7 +78,7 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
 **Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app.
 
 **Environment variables** (see `apps/aze-api/.env.example`):
-- `DATABASE_URL` — SQLite file path (e.g., `file:./dev.db`)
+- `DATABASE_URL` — Postgres connection string (e.g., `postgresql://aze:aze_local_password@localhost:5432/aze?schema=public`)
 - `JWT_SECRET` — Secret for JWT signing
 - `API_KEY` — Key for the `x-api-key` guard
 - `NODE_ENV`, `PORT`

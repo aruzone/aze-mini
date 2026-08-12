@@ -46,6 +46,7 @@ A production-ready **starter template** built with cutting-edge tools and framew
 
 ### Prerequisites
 - Node.js (>=18)
+- Docker (required — Postgres runs in a container; there is no file-based database fallback)
 - Nx CLI
 - NestJc CLI
 
@@ -60,11 +61,15 @@ npm install
 ### Run Aze API Backend
 
 ```
+# START POSTGRES (from the repo root)
+# --wait blocks until Postgres is accepting connections
+docker compose up -d --wait
+
 # CREATE BACKEND ENV FILE
 cd apps/aze-api
 cp .env.example .env
 
-# CREATE PRISMA SQLITE DB
+# CREATE THE DATABASE SCHEMA
 npx prisma migrate dev
 npx prisma generate
 

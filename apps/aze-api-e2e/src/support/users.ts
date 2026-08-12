@@ -14,5 +14,15 @@ export async function registerUser() {
 
   const res = await axios.post('/api/auth/register', { email, password, name: 'Ada' });
 
-  return { id: res.data.userId as string, email, password };
+  return {
+    id: res.data.userId as string,
+    email,
+    password,
+    accessToken: res.data.accessToken as string,
+  };
+}
+
+/** Calls as the holder of this token, reading the status rather than throwing. */
+export function asUser(accessToken: string) {
+  return { headers: { authorization: `Bearer ${accessToken}` }, ...anyStatus };
 }

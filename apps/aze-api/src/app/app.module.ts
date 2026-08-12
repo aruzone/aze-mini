@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
+import { AuthGuard } from '../config/guards/auth.guard';
 import { AppService } from './app.service';
 import { ProductsModule } from '../product/products/products.module';
 import { ConfigModule } from '@nestjs/config';
@@ -20,6 +22,6 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AppModule {}

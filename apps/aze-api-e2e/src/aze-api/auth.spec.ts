@@ -1,17 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import axios from 'axios';
-import { anyStatus } from '../support/users';
+import { anyStatus, asUser } from '../support/users';
 
+// Registered Users are left behind: the users resource is a current-User read
+// only, so nothing here can delete one. Each run registers under a fresh uuid
+// address, so runs never collide.
 describe('registration and login', () => {
   const email = `ada-${randomUUID()}@example.com`;
   const password = 'correct horse battery staple';
   let userId: string;
-
-  afterAll(async () => {
-    if (userId) {
-      await axios.delete(`/api/users/${userId}`, anyStatus);
-    }
-  });
 
   it('registers a visitor without a token and returns no password', async () => {
     const res = await axios.post('/api/auth/register', { email, password, name: 'Ada' });
@@ -85,42 +82,14 @@ describe('registration and login', () => {
     expect(res.data.message).toMatch(/already registered/i);
   });
 
-  it('offers no way to create an account through the users resource', async () => {
-    const res = await axios.post(
-      '/api/users',
-      { email: `mallory-${randomUUID()}@example.com`, password: 'plain text' },
-      anyStatus,
-    );
+  // That the users resource itself leaks no password is users.spec.ts's job;
+  // what is asserted here is that the token registration issued reaches it.
+  it('issues a token that identifies the registered User', async () => {
+    const login = await axios.post('/api/auth/login', { email, password });
 
-    expect(res.status).toBe(404);
-  });
+    const me = await axios.get('/api/users/me', asUser(login.data.accessToken));
 
-  // These calls carry no token because nothing guards the users resource yet —
-  // that is ADR-0002's job, tracked in #5. What is asserted here is only that
-  // no password crosses the wire; expect to add tokens when the guard lands.
-  it('never returns the password field from the users resource', async () => {
-    const list = await axios.get('/api/users');
-    expect(list.status).toBe(200);
-    expect(list.data.length).toBeGreaterThan(0);
-    for (const user of list.data) {
-      expect(user.password).toBeUndefined();
-    }
-
-    const one = await axios.get(`/api/users/${userId}`);
-    expect(one.data).toMatchObject({ id: userId, email });
-    expect(one.data.password).toBeUndefined();
-
-    const patched = await axios.patch(`/api/users/${userId}`, {
-      name: 'Ada Lovelace',
-      password: 'plain text',
-    });
-    expect(patched.data).toMatchObject({ name: 'Ada Lovelace' });
-    expect(patched.data.password).toBeUndefined();
-  });
-
-  it('leaves the password unchanged when the users resource is asked to set one', async () => {
-    const res = await axios.post('/api/auth/login', { email, password });
-
-    expect(res.status).toBe(200);
+    expect(me.status).toBe(200);
+    expect(me.data).toMatchObject({ id: userId, email });
   });
 });

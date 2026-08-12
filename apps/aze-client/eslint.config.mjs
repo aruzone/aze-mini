@@ -1,21 +1,18 @@
-import { FlatCompat } from '@eslint/eslintrc';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import js from '@eslint/js';
-import { fixupConfigRules } from '@eslint/compat';
+// eslint-config-next ships native flat config, so the eslintrc compatibility
+// layer is not needed. It was also the source of a hard failure: FlatCompat
+// loads @eslint/eslintrc, which could not parse the modern shareable config.
+// `core-web-vitals` is a superset of the base `next` config.
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nx from '@nx/eslint-plugin';
 import baseConfig from '../../eslint.config.mjs';
-const compat = new FlatCompat({
-  baseDirectory: dirname(fileURLToPath(import.meta.url)),
-  recommendedConfig: js.configs.recommended,
-});
 
-export default [
-  ...fixupConfigRules(compat.extends('next')),
-  ...fixupConfigRules(compat.extends('next/core-web-vitals')),
+const config = [
+  ...nextCoreWebVitals,
   ...baseConfig,
   ...nx.configs['flat/react-typescript'],
   {
     ignores: ['.next/**/*'],
   },
 ];
+
+export default config;

@@ -5,6 +5,7 @@
 
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
 import { PrismaFilter } from './config/filter/prisma.filter';
 
@@ -22,7 +23,9 @@ async function bootstrap() {
 
   app.useGlobalFilters(new PrismaFilter());
 
-  const port = process.env.PORT || 3030;
+  // Read from appConfig rather than re-deriving process.env.PORT here — the
+  // two defaults could otherwise drift apart.
+  const port = app.get(ConfigService).get<number>('port');
   await app.listen(port);
   Logger.log(
     `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`

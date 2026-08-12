@@ -48,7 +48,7 @@ Workspace (Nx)
 
 1. `main.ts` calls `NestFactory.create(AppModule)`
 2. `AppModule` loads `ConfigModule` (global), `DatabaseModule`, `AuthModule`, `UsersModule`, `ProductsModule`
-3. `DatabaseService.onModuleInit()` calls `this.$connect()` to open SQLite connection
+3. `DatabaseService.onModuleInit()` calls `this.$connect()` to open the Postgres connection
 4. Global prefix `/api` set; CORS allowed for `http://localhost:3000`
 5. Server listens on `PORT` env var (default `3030`)
 
@@ -60,7 +60,7 @@ Client → POST /api/products
   → AuthGuard (validates Bearer JWT, attaches req.user)
   → ProductsController.create()
   → ProductsService.create()
-  → DatabaseService (PrismaClient) → SQLite
+  → DatabaseService (PrismaClient) → Postgres
 ```
 
 ### Authentication Flow

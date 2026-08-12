@@ -5,7 +5,10 @@ export default [
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
   {
-    ignores: ['**/dist'],
+    // `generated` holds the Prisma client (see apps/aze-api/prisma/schema.prisma
+    // `output`). It is generated, git-ignored, and minified — linting it buries
+    // findings in authored code under thousands of errors.
+    ignores: ['**/dist', '**/generated'],
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],

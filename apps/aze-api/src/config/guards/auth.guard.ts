@@ -18,9 +18,11 @@ export class AuthGuard implements CanActivate {
 
     try {
       const tokenPayload = await this.jwtService.verifyAsync(token);
+      // Only claims AuthService.login signs. Anything else reads as an identity
+      // to whoever builds authorization on this context, but is always undefined.
       request.user = {
         userId: tokenPayload.sub,
-        username: tokenPayload.username,
+        email: tokenPayload.email,
       };
       return true;
     } catch (err) {

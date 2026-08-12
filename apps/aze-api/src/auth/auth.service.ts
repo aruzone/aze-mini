@@ -115,7 +115,7 @@ export class AuthService {
     const user = await this.usersService.findUserByEmail(email);
 
     if (user && (await compare(password, user.password))) {
-      return { userId: user.id.toString(), email: user.email };
+      return { userId: user.id, email: user.email };
     }
 
     return null;

@@ -61,8 +61,8 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
 
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
-- `src/auth/` — JWT authentication (`AuthService`, `AuthController`). Login validates against `users` table and issues JWT tokens (1-day expiry). Passwords are stored plain-text (no hashing yet).
-- `src/users/` — User CRUD; used by `AuthService` for login validation
+- `src/auth/` — JWT authentication (`AuthService`, `AuthController`). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
+- `src/users/` — User read/update/delete; used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
 - `src/product/` — Feature group containing:
   - `products/` — Full CRUD for products
   - `product-category/` — Category management

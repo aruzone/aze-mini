@@ -92,3 +92,17 @@ CORS is configured on the backend to allow `http://localhost:3000`.
 ### Nx Workspace
 
 `nx.json` configures plugins for Next.js, Jest, ESLint, Webpack, and Playwright. All Nx targets (`build`, `serve`, `test`, `lint`, `e2e`) are inferred via these plugins. The `aze-api` project has an explicit `project.json` for its build targets using webpack-cli.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in the `aruzone/aze-mini` GitHub Issues, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, using the default label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

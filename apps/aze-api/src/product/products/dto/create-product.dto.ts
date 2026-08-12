@@ -1,5 +1,4 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -14,9 +13,12 @@ export class CreateProductDto {
   @IsPositive()
   price: number;
 
-  // The relation is a flat id on the wire; the service turns it into Prisma's
-  // nested connect, so the contract does not carry Prisma's vocabulary.
-  @Type(() => Number)
   @IsInt()
   categoryId: number;
+
+  // Replaces the linked Tags on update rather than adding to them.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('7', { each: true })
+  tagIds?: string[];
 }

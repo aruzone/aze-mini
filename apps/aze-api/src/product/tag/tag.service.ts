@@ -8,7 +8,13 @@ export class TagService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   create(createTagDto: CreateTagDto) {
-    return this.databaseService.tag.create({ data: createTagDto });
+    const { productIds, ...tag } = createTagDto;
+    return this.databaseService.tag.create({
+      data: {
+        ...tag,
+        ...(productIds && { products: { connect: productIds.map((id) => ({ id })) } }),
+      },
+    });
   }
 
   findAll() {
@@ -26,9 +32,13 @@ export class TagService {
   }
 
   update(id: string, updateTagDto: UpdateTagDto) {
+    const { productIds, ...tag } = updateTagDto;
     return this.databaseService.tag.update({
       where: { id },
-      data: updateTagDto,
+      data: {
+        ...tag,
+        ...(productIds && { products: { set: productIds.map((pid) => ({ id: pid })) } }),
+      },
     });
   }
 

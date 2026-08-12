@@ -2,7 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import { PrismaClientValidationError } from '../../../generated/prisma/runtime/library';
 
 @Catch()
-export class PrismaFilter<T> implements ExceptionFilter {
+export class ApiExceptionFilter<T> implements ExceptionFilter {
   catch(exception: T, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();

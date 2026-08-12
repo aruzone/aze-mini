@@ -32,9 +32,10 @@ export class ReviewService {
     const { productId, ...review } = updateReviewDto;
     return this.databaseService.review.update({
       where: { id },
-      data: productId === undefined
-        ? review
-        : { ...review, product: { connect: { id: productId } } },
+      data: {
+        ...review,
+        ...(productId !== undefined && { product: { connect: { id: productId } } }),
+      },
     });
   }
 

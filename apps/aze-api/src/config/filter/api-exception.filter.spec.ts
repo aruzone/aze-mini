@@ -1,5 +1,5 @@
 import { ArgumentsHost, BadRequestException, ConflictException } from '@nestjs/common';
-import { PrismaFilter } from './prisma.filter';
+import { ApiExceptionFilter } from './api-exception.filter';
 
 const hostFor = (response: unknown) =>
   ({
@@ -9,16 +9,16 @@ const hostFor = (response: unknown) =>
     }),
   }) as ArgumentsHost;
 
-describe('PrismaFilter', () => {
+describe('ApiExceptionFilter', () => {
   it('should be defined', () => {
-    expect(new PrismaFilter()).toBeDefined();
+    expect(new ApiExceptionFilter()).toBeDefined();
   });
 
   it('preserves the status and message of an HTTP exception it does not name', () => {
     const json = jest.fn();
     const response = { status: jest.fn(() => ({ json })) };
 
-    new PrismaFilter().catch(
+    new ApiExceptionFilter().catch(
       new ConflictException('That email is already registered'),
       hostFor(response),
     );
@@ -39,7 +39,7 @@ describe('PrismaFilter', () => {
     const json = jest.fn();
     const response = { status: jest.fn(() => ({ json })) };
 
-    new PrismaFilter().catch(
+    new ApiExceptionFilter().catch(
       new BadRequestException({
         statusCode: 400,
         message: ['name should not be empty', 'price must be a number'],

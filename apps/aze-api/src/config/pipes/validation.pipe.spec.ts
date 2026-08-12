@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { CreateProductDto } from '../product/products/dto/create-product.dto';
-import { validationPipe } from './validation';
+import { CreateProductDto } from '../../product/products/dto/create-product.dto';
+import { validationPipe } from './validation.pipe';
 
 const metadata = {
   type: 'body' as const,

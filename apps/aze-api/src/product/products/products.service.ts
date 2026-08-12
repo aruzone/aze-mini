@@ -9,9 +9,13 @@ export class ProductsService {
   constructor(private readonly databaseService: DatabaseService, private readonly configService: ConfigService) {}
 
   async create(createProductDto: CreateProductDto) {
-    const { categoryId, ...product } = createProductDto;
+    const { categoryId, tagIds, ...product } = createProductDto;
     return this.databaseService.product.create({
-      data: { ...product, category: { connect: { id: categoryId } } },
+      data: {
+        ...product,
+        category: { connect: { id: categoryId } },
+        ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
+      },
     });
   }
 
@@ -31,12 +35,14 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
-    const { categoryId, ...product } = updateProductDto;
+    const { categoryId, tagIds, ...product } = updateProductDto;
     return this.databaseService.product.update({
       where: { id },
-      data: categoryId === undefined
-        ? product
-        : { ...product, category: { connect: { id: categoryId } } },
+      data: {
+        ...product,
+        ...(categoryId !== undefined && { category: { connect: { id: categoryId } } }),
+        ...(tagIds && { tags: { set: tagIds.map((id) => ({ id })) } }),
+      },
     });
   }
 

@@ -11,5 +11,6 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   name?: string;
 }

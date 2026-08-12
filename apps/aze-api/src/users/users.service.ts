@@ -17,9 +17,9 @@ export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   /** `password` must already be hashed — AuthService.register is the only caller. */
-  async create(createUserDto: NewUser) {
+  async create(newUser: NewUser) {
     return this.databaseService.user.create({
-      data: createUserDto,
+      data: newUser,
       omit: withoutPassword,
     });
   }

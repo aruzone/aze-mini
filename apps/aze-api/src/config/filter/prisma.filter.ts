@@ -1,4 +1,4 @@
-import { ArgumentsHost, BadRequestException, Catch, ExceptionFilter, HttpStatus, NotImplementedException, UnauthorizedException } from '@nestjs/common';
+import { ArgumentsHost, BadRequestException, Catch, ExceptionFilter, HttpException, HttpStatus, NotImplementedException, UnauthorizedException } from '@nestjs/common';
 import { PrismaClientValidationError } from '../../../generated/prisma/runtime/library';
 
 @Catch()
@@ -23,6 +23,11 @@ export class PrismaFilter<T> implements ExceptionFilter {
     } else if (exception instanceof UnauthorizedException) {
       httpStatus = 401;
       errorMessage = "Unauthorized: " + exception.message;
+    } else if (exception instanceof HttpException) {
+      // This filter catches everything, so any HttpException it doesn't name
+      // above would otherwise be flattened into a 500.
+      httpStatus = exception.getStatus();
+      errorMessage = exception.message;
     }
 
     response.status(httpStatus).json({

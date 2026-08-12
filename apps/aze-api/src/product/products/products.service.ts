@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '../../../generated/prisma';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(private readonly databaseService: DatabaseService, private readonly configService: ConfigService) {}
 
-  async create(createProductDto: Prisma.ProductCreateInput) {
-    return this.databaseService.product.create({ data: createProductDto });
+  async create(createProductDto: CreateProductDto) {
+    const { categoryId, ...product } = createProductDto;
+    return this.databaseService.product.create({
+      data: { ...product, category: { connect: { id: categoryId } } },
+    });
   }
 
   async findAll(sort: 'asc' | 'desc', limit?: number) {
@@ -26,10 +30,13 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, updateProductDto: Prisma.ProductUpdateInput) {
+  async update(id: string, updateProductDto: UpdateProductDto) {
+    const { categoryId, ...product } = updateProductDto;
     return this.databaseService.product.update({
       where: { id },
-      data: updateProductDto,
+      data: categoryId === undefined
+        ? product
+        : { ...product, category: { connect: { id: categoryId } } },
     });
   }
 

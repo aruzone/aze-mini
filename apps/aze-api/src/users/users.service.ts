@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
+
+/** Not a request body: AuthService builds this, password already hashed. */
+type NewUser = {
+  email: string;
+  name?: string;
+  password: string;
+};
 
 // Every read but findUserByEmail drops the password, so no route can leak a
 // hash by returning a User straight from Prisma.
@@ -11,7 +17,7 @@ export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   /** `password` must already be hashed — AuthService.register is the only caller. */
-  async create(createUserDto: Prisma.UserCreateInput) {
+  async create(createUserDto: NewUser) {
     return this.databaseService.user.create({
       data: createUserDto,
       omit: withoutPassword,

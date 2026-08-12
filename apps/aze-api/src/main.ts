@@ -8,6 +8,7 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
 import { PrismaFilter } from './config/filter/prisma.filter';
+import { validationPipe } from './config/validation';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,6 +22,7 @@ async function bootstrap() {
     credentials: true, 
   });
 
+  app.useGlobalPipes(validationPipe());
   app.useGlobalFilters(new PrismaFilter());
 
   // Read from appConfig rather than re-deriving process.env.PORT here — the

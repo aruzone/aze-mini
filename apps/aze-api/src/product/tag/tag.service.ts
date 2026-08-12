@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma';
+import { CreateTagDto } from './dto/create-tag.dto';
+import { UpdateTagDto } from './dto/update-tag.dto';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class TagService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  create(createTagDto: Prisma.TagCreateInput) {
+  create(createTagDto: CreateTagDto) {
     return this.databaseService.tag.create({ data: createTagDto });
   }
 
@@ -24,7 +25,7 @@ export class TagService {
     return tag;
   }
 
-  update(id: string, updateTagDto: Prisma.TagUpdateInput) {
+  update(id: string, updateTagDto: UpdateTagDto) {
     return this.databaseService.tag.update({
       where: { id },
       data: updateTagDto,

@@ -22,8 +22,6 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [AppController],
-  // Registered here rather than per route: a controller an Adopter adds is
-  // protected because it exists, not because someone remembered a decorator.
   providers: [AppService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AppModule {}

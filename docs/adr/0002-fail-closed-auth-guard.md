@@ -6,7 +6,7 @@ The JWT guard was applied per route with `@UseGuards`, which meant protection wa
 
 We decided the JWT guard is registered globally through `APP_GUARD`, and routes reachable anonymously opt out with an explicit `@Public()` decorator. Three carry it: the root/health route, login, and registration.
 
-`ApiKeyGuard` is no longer stacked on top of JWT. It survives as a Demo of machine-to-machine authentication on `POST /api/products`, marked `@MachineToMachine()` — one decorator that both stands the JWT guard down and applies the key guard. A route authenticated by key is not anonymous, so it does not take `@Public()`; keeping the two markers distinct is what lets a `@Public()` grep answer "which routes need no credential at all".
+`ApiKeyGuard` is no longer stacked on top of JWT. It survives as a Demo of machine-to-machine authentication on `POST /api/products`, marked `@MachineToMachine()` — one decorator that both stands the JWT guard down and applies the key guard. A route authenticated by key is not anonymous, so it does not take `@Public()`; keeping the two markers distinct is what lets a grep for `@Public()` across the controllers answer "which routes need no credential at all".
 
 The users resource is reduced to `GET /api/users/me`, reading the id off the verified token. There is no route to another User and none to list them.
 
@@ -14,4 +14,4 @@ The users resource is reduced to `GET /api/users/me`, reading the id off the ver
 
 - Controllers carry no `@UseGuards` and are protected nonetheless. A reader unaware of the global guard may assume the opposite and re-add per-route guards.
 - Every new anonymous route must be deliberately marked `@Public()`.
-- Adding a second machine-to-machine route means the Demo is no longer a single example; prefer extending the existing one.
+- The machine-to-machine route is Demo: it shows the pattern once and is deleted with the rest of the Demo. An Adopter needing key auth on their own route applies `@MachineToMachine()` to it rather than building on this one.

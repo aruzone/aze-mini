@@ -8,8 +8,6 @@ import { IsPositivePipe } from '../../config/pipes/is-positive.pipe';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  // The one surviving Demo of machine-to-machine auth: a caller with the API
-  // key and no User account. Every other route here takes a token.
   @MachineToMachine()
   @Post()
   create(@Body() createProductDto: Prisma.ProductCreateInput) {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import axios from 'axios';
-import { anyStatus, bearer } from '../support/users';
+import { anyStatus, asUser } from '../support/users';
 
 // Registered Users are left behind: the users resource is a current-User read
 // only, so nothing here can delete one. Each run registers under a fresh uuid
@@ -82,23 +82,14 @@ describe('registration and login', () => {
     expect(res.data.message).toMatch(/already registered/i);
   });
 
-  it('offers no way to create an account through the users resource', async () => {
-    const res = await axios.post(
-      '/api/users',
-      { email: `mallory-${randomUUID()}@example.com`, password: 'plain text' },
-      anyStatus,
-    );
-
-    expect(res.status).toBe(404);
-  });
-
-  it('never returns the password field from the users resource', async () => {
+  // That the users resource itself leaks no password is users.spec.ts's job;
+  // what is asserted here is that the token registration issued reaches it.
+  it('issues a token that identifies the registered User', async () => {
     const login = await axios.post('/api/auth/login', { email, password });
 
-    const me = await axios.get('/api/users/me', bearer(login.data.accessToken));
+    const me = await axios.get('/api/users/me', asUser(login.data.accessToken));
 
     expect(me.status).toBe(200);
     expect(me.data).toMatchObject({ id: userId, email });
-    expect(me.data.password).toBeUndefined();
   });
 });

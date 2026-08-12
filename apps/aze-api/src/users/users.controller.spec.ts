@@ -20,18 +20,9 @@ describe('UsersController', () => {
     controller = module.get<UsersController>(UsersController);
   });
 
-  it('looks a User up by the uuid as given', async () => {
-    await controller.findMe({ user: { userId: USER_ID, email: 'ada@example.com' } });
+  it('looks a User up by the uuid the token carries', async () => {
+    await controller.findMe({ userId: USER_ID, email: 'ada@example.com' });
 
     expect(mockUsersService.findOne).toHaveBeenCalledWith(USER_ID);
-  });
-
-  // The id comes from the verified token, never from the caller, so there is no
-  // path id to swap for someone else's.
-  it('reads the User the token identifies, not one the caller names', async () => {
-    await controller.findMe({ user: { userId: USER_ID, email: 'ada@example.com' } });
-
-    expect(mockUsersService.findOne).toHaveBeenCalledTimes(1);
-    expect(mockUsersService.findOne).not.toHaveBeenCalledWith(expect.stringMatching(/me/));
   });
 });

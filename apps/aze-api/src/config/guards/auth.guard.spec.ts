@@ -121,8 +121,6 @@ describe('AuthGuard', () => {
     expect(request.user).toBeUndefined();
   });
 
-  // The guard is registered globally, so a route it does not recognise is a
-  // route it protects. Opting out is the deliberate act, never the default.
   it('protects a route that opts out of nothing', async () => {
     const request: RequestWithUser = { headers: {} };
 
@@ -140,8 +138,8 @@ describe('AuthGuard', () => {
     expect(request.user).toBeUndefined();
   });
 
-  // The key guard authenticates this one, so stacking JWT on top would demand
-  // two credentials for a caller that has no User to log in as.
+  // The key guard authenticates this one; stacking JWT on top would demand two
+  // credentials from a caller that has no User to log in as.
   it('stands down on a machine-to-machine route', async () => {
     const request: RequestWithUser = { headers: {} };
 

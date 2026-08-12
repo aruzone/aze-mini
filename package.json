@@ -10,6 +10,7 @@
     "@eslint/js": "^9.39.3",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.14",
+    "dotenv": "^16.4.7",
     "@next/eslint-plugin-next": "^16.1.6",
     "@nx/devkit": "22.5.3",
     "@nx/eslint": "22.5.3",

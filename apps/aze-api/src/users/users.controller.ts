@@ -1,5 +1,6 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/token-claims';
+import { CurrentUser } from '../config/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 
 // Accounts are created by POST /auth/register, which hashes the password, so
@@ -11,7 +12,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  findMe(@Req() request: { user: AuthenticatedUser }) {
-    return this.usersService.findOne(request.user.userId);
+  findMe(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.findOne(user.userId);
   }
 }

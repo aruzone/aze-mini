@@ -1,22 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import axios from 'axios';
+import { anyStatus, registerUser } from '../support/users';
 
-const anyStatus = { validateStatus: () => true };
-
-// Registration is the only way an account comes into existence, so the uuid
-// under test is one the database issued rather than one this spec invented.
-async function registerUser() {
-  const email = `ada-${randomUUID()}@example.com`;
-  const res = await axios.post('/api/auth/register', {
-    email,
-    password: 'correct horse battery staple',
-    name: 'Ada',
-  });
-  return { id: res.data.userId as string, email };
-}
-
-// A uuid coerced numerically reaches the database as "NaN" and matches nothing,
-// so each of these routes answers about a User that was found by its real id.
+// These calls carry no token because nothing guards the users resource yet —
+// that is ADR-0002's job, tracked in #5. Expect to add tokens when the guard
+// lands; what is asserted here is only that each route reaches the User whose
+// uuid it was given.
 describe('reaching a User by uuid', () => {
   it('fetches a User by uuid', async () => {
     const user = await registerUser();
@@ -49,8 +37,10 @@ describe('reaching a User by uuid', () => {
 
     const deleted = await axios.delete(`/api/users/${user.id}`, anyStatus);
     expect(deleted.status).toBe(200);
+    expect(deleted.data).toMatchObject({ id: user.id });
 
     const afterwards = await axios.get(`/api/users/${user.id}`, anyStatus);
+    expect(afterwards.status).toBe(200);
     expect(afterwards.data).toBeFalsy();
   });
 });

@@ -1,16 +1,20 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from '../../auth/auth.service';
+import { UsersService } from '../../users/users.service';
 import { AuthGuard } from './auth.guard';
 
-// A real JwtService, so the claims under test are the ones AuthService signs
-// rather than the ones a mock was told to return.
 const JWT_SECRET = 'test-secret';
 
 type RequestWithUser = {
   headers: Record<string, string>;
   user?: Record<string, unknown>;
 };
+
+function requestWith(token: string): RequestWithUser {
+  return { headers: { authorization: `Bearer ${token}` } };
+}
 
 function contextFor(request: RequestWithUser) {
   return {
@@ -20,38 +24,50 @@ function contextFor(request: RequestWithUser) {
 
 describe('AuthGuard', () => {
   let guard: AuthGuard;
-  let jwtService: JwtService;
+  let authService: AuthService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [JwtModule.register({ secret: JWT_SECRET })],
-      providers: [AuthGuard],
+      providers: [
+        AuthGuard,
+        AuthService,
+        { provide: UsersService, useValue: { findUserByEmail: jest.fn() } },
+      ],
     }).compile();
 
     guard = module.get<AuthGuard>(AuthGuard);
-    jwtService = module.get<JwtService>(JwtService);
+    authService = module.get<AuthService>(AuthService);
   });
 
+  // The token comes from AuthService rather than from a payload this spec
+  // invents, so a claim renamed on the signing side fails here instead of
+  // quietly reappearing as an undefined field on the request context.
+  async function issuedToken() {
+    const { accessToken } = await authService.login({
+      userId: 'user-1',
+      email: 'ada@example.com',
+    });
+    return accessToken;
+  }
+
   it('exposes the claims the token actually carries', async () => {
-    const token = jwtService.sign({ email: 'ada@example.com', sub: 'user-1' });
-    const request: RequestWithUser = { headers: { authorization: `Bearer ${token}` } };
+    const request = requestWith(await issuedToken());
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
 
     expect(request.user).toEqual({ userId: 'user-1', email: 'ada@example.com' });
   });
 
-  // The context is what an Adopter builds authorization on, so a key that is
-  // always undefined is worse than a missing one: it reads as a usable identity.
+  // A key that is always undefined is worse than a missing one: it reads as a
+  // usable identity to whoever builds authorization on this context.
   it('exposes no claim the token does not carry', async () => {
-    const token = jwtService.sign({ email: 'ada@example.com', sub: 'user-1' });
-    const request: RequestWithUser = { headers: { authorization: `Bearer ${token}` } };
+    const request = requestWith(await issuedToken());
 
     await guard.canActivate(contextFor(request));
 
-    for (const [claim, value] of Object.entries(request.user ?? {})) {
-      expect([claim, value]).not.toEqual([claim, undefined]);
-    }
+    expect(Object.keys(request.user ?? {})).toEqual(['userId', 'email']);
+    expect(Object.values(request.user ?? {})).not.toContain(undefined);
   });
 
   it('rejects a request carrying no token', async () => {
@@ -64,11 +80,17 @@ describe('AuthGuard', () => {
 
   it('rejects a token signed with another secret', async () => {
     const foreign = new JwtService({ secret: 'another-secret' });
-    const token = foreign.sign({ email: 'mallory@example.com', sub: 'user-2' });
-    const request: RequestWithUser = { headers: { authorization: `Bearer ${token}` } };
+    const request = requestWith(foreign.sign({ email: 'mallory@example.com', sub: 'user-2' }));
 
     await expect(guard.canActivate(contextFor(request))).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+
+  it('leaves an unauthenticated request with no identity attached', async () => {
+    const request: RequestWithUser = { headers: {} };
+
+    await expect(guard.canActivate(contextFor(request))).rejects.toThrow();
+    expect(request.user).toBeUndefined();
   });
 });

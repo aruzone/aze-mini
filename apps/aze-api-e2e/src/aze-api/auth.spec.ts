@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import axios from 'axios';
-
-const anyStatus = { validateStatus: () => true };
+import { anyStatus } from '../support/users';
 
 describe('registration and login', () => {
   const email = `ada-${randomUUID()}@example.com`;

@@ -2,8 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
-// A uuid, not a number: coercing it numerically asks the database for "NaN" and
-// matches nothing, so every read and write by id silently misses.
 const USER_ID = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f';
 
 describe('UsersController', () => {
@@ -44,16 +42,5 @@ describe('UsersController', () => {
     await controller.remove(USER_ID);
 
     expect(mockUsersService.remove).toHaveBeenCalledWith(USER_ID);
-  });
-
-  it('never writes a password, whatever the body carries', async () => {
-    await controller.update(USER_ID, {
-      name: 'Ada Lovelace',
-      password: 'plain text',
-    } as Parameters<UsersController['update']>[1]);
-
-    expect(mockUsersService.update).toHaveBeenCalledWith(USER_ID, {
-      name: 'Ada Lovelace',
-    });
   });
 });

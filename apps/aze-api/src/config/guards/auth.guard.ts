@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { AuthenticatedUser, TokenClaims } from '../../auth/token-claims';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -17,13 +18,9 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const tokenPayload = await this.jwtService.verifyAsync(token);
-      // Only claims AuthService.login signs. Anything else reads as an identity
-      // to whoever builds authorization on this context, but is always undefined.
-      request.user = {
-        userId: tokenPayload.sub,
-        email: tokenPayload.email,
-      };
+      const claims = await this.jwtService.verifyAsync<TokenClaims>(token);
+      const user: AuthenticatedUser = { userId: claims.sub, email: claims.email };
+      request.user = user;
       return true;
     } catch (err) {
       throw new UnauthorizedException('Invalid token');

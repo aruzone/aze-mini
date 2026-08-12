@@ -18,10 +18,6 @@ export class UsersService {
     });
   }
 
-  async findAll() {
-    return this.databaseService.user.findMany({ omit: withoutPassword });
-  }
-
   async findOne(id: string) {
     return this.databaseService.user.findUnique({
       where: { id },
@@ -33,18 +29,4 @@ export class UsersService {
     return this.databaseService.user.findUnique({ where: { email } });
   }
 
-  async update(id: string, updateUserDto: Omit<Prisma.UserUpdateInput, 'password'>) {
-    return this.databaseService.user.update({
-      where: { id },
-      data: updateUserDto,
-      omit: withoutPassword,
-    });
-  }
-
-  async remove(id: string) {
-    return this.databaseService.user.delete({
-      where: { id },
-      omit: withoutPassword,
-    });
-  }
 }

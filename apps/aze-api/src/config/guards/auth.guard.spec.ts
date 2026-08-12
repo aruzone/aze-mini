@@ -1,8 +1,11 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from '../../auth/auth.service';
 import { UsersService } from '../../users/users.service';
+import { MachineToMachine } from '../decorators/machine-to-machine.decorator';
+import { Public } from '../decorators/public.decorator';
 import { AuthGuard } from './auth.guard';
 
 const JWT_SECRET = 'test-secret';
@@ -12,13 +15,36 @@ type RequestWithUser = {
   user?: Record<string, unknown>;
 };
 
+// Routes carrying the real decorators, so the guard is read through the same
+// metadata a controller would set rather than through a hand-built stub.
+class DemoController {
+  @Public()
+  anonymous() {
+    return null;
+  }
+
+  @MachineToMachine()
+  machine() {
+    return null;
+  }
+
+  guarded() {
+    return null;
+  }
+}
+
 function requestWith(token: string): RequestWithUser {
   return { headers: { authorization: `Bearer ${token}` } };
 }
 
-function contextFor(request: RequestWithUser) {
+function contextFor(
+  request: RequestWithUser,
+  handler: keyof DemoController = 'guarded',
+) {
   return {
     switchToHttp: () => ({ getRequest: () => request }),
+    getHandler: () => DemoController.prototype[handler],
+    getClass: () => DemoController,
   } as unknown as ExecutionContext;
 }
 
@@ -32,6 +58,7 @@ describe('AuthGuard', () => {
       providers: [
         AuthGuard,
         AuthService,
+        Reflector,
         { provide: UsersService, useValue: { findUserByEmail: jest.fn() } },
       ],
     }).compile();
@@ -91,6 +118,34 @@ describe('AuthGuard', () => {
     const request: RequestWithUser = { headers: {} };
 
     await expect(guard.canActivate(contextFor(request))).rejects.toThrow();
+    expect(request.user).toBeUndefined();
+  });
+
+  // The guard is registered globally, so a route it does not recognise is a
+  // route it protects. Opting out is the deliberate act, never the default.
+  it('protects a route that opts out of nothing', async () => {
+    const request: RequestWithUser = { headers: {} };
+
+    await expect(guard.canActivate(contextFor(request, 'guarded'))).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('lets an anonymous route through without a token', async () => {
+    const request: RequestWithUser = { headers: {} };
+
+    await expect(guard.canActivate(contextFor(request, 'anonymous'))).resolves.toBe(
+      true,
+    );
+    expect(request.user).toBeUndefined();
+  });
+
+  // The key guard authenticates this one, so stacking JWT on top would demand
+  // two credentials for a caller that has no User to log in as.
+  it('stands down on a machine-to-machine route', async () => {
+    const request: RequestWithUser = { headers: {} };
+
+    await expect(guard.canActivate(contextFor(request, 'machine'))).resolves.toBe(true);
     expect(request.user).toBeUndefined();
   });
 });

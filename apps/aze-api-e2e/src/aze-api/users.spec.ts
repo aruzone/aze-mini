@@ -1,46 +1,53 @@
 import axios from 'axios';
-import { anyStatus, registerUser } from '../support/users';
+import { anyStatus, bearer, registerUser } from '../support/users';
 
-// These calls carry no token because nothing guards the users resource yet —
-// that is ADR-0002's job, tracked in #5. Expect to add tokens when the guard
-// lands; what is asserted here is only that each route reaches the User whose
-// uuid it was given.
-describe('reaching a User by uuid', () => {
-  it('fetches a User by uuid', async () => {
+describe('the current User', () => {
+  it('reads the User the token identifies', async () => {
     const user = await registerUser();
 
-    const res = await axios.get(`/api/users/${user.id}`, anyStatus);
+    const res = await axios.get('/api/users/me', bearer(user.accessToken));
 
     expect(res.status).toBe(200);
     expect(res.data).toMatchObject({ id: user.id, email: user.email });
-
-    await axios.delete(`/api/users/${user.id}`, anyStatus);
   });
 
-  it('updates a User by uuid', async () => {
+  // The uuid comes off the token and goes to the database as it stands;
+  // coercing it numerically would ask for "NaN" and match nothing.
+  it('resolves the uuid the token carries, not a coercion of it', async () => {
     const user = await registerUser();
 
-    const res = await axios.patch(
-      `/api/users/${user.id}`,
-      { name: 'Ada Lovelace' },
+    const res = await axios.get('/api/users/me', bearer(user.accessToken));
+
+    expect(res.data.id).toBe(user.id);
+    expect(res.data.id).not.toBe('NaN');
+  });
+
+  it('never returns the password field', async () => {
+    const user = await registerUser();
+
+    const res = await axios.get('/api/users/me', bearer(user.accessToken));
+
+    expect(res.data.password).toBeUndefined();
+  });
+
+  it('offers no route to another User', async () => {
+    const user = await registerUser();
+    const other = await registerUser();
+
+    const byId = await axios.get(`/api/users/${other.id}`, bearer(user.accessToken));
+    const all = await axios.get('/api/users', bearer(user.accessToken));
+
+    expect(byId.status).toBe(404);
+    expect(all.status).toBe(404);
+  });
+
+  it('offers no way to create an account through the users resource', async () => {
+    const res = await axios.post(
+      '/api/users',
+      { email: 'mallory@example.com', password: 'plain text' },
       anyStatus,
     );
 
-    expect(res.status).toBe(200);
-    expect(res.data).toMatchObject({ id: user.id, name: 'Ada Lovelace' });
-
-    await axios.delete(`/api/users/${user.id}`, anyStatus);
-  });
-
-  it('deletes a User by uuid', async () => {
-    const user = await registerUser();
-
-    const deleted = await axios.delete(`/api/users/${user.id}`, anyStatus);
-    expect(deleted.status).toBe(200);
-    expect(deleted.data).toMatchObject({ id: user.id });
-
-    const afterwards = await axios.get(`/api/users/${user.id}`, anyStatus);
-    expect(afterwards.status).toBe(200);
-    expect(afterwards.data).toBeFalsy();
+    expect(res.status).toBe(404);
   });
 });

@@ -62,7 +62,7 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
 - `src/auth/` — JWT authentication (`AuthService`, `AuthController`). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
-- `src/users/` — User read/update/delete; used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
+- `src/users/` — `GET /users/me` only, reading the id off the verified token; also used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
 - `src/product/` — Feature group containing:
   - `products/` — Full CRUD for products
   - `product-category/` — Category management
@@ -70,8 +70,10 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
   - `tag/` — Tags (many-to-many with Product)
 - `src/database/` — `DatabaseService` extends `PrismaClient`; injected into all services
 - `src/config/` — App config, guards, pipes, filters:
-  - `auth.guard.ts` — JWT bearer token guard; attaches `req.user`
-  - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure
+  - `auth.guard.ts` — JWT bearer token guard, registered globally via `APP_GUARD` (see ADR-0002); attaches `req.user`. Every route requires a token unless it opts out
+  - `decorators/public.decorator.ts` — `@Public()` opts a route out of the global guard. Only the root/health route, login, and registration carry it
+  - `decorators/machine-to-machine.decorator.ts` — `@MachineToMachine()` stands the JWT guard down and applies `ApiKeyGuard` instead; on `POST /products` only
+  - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure. Never stacked on top of the JWT guard
   - `prisma.filter.ts` — Global exception filter for Prisma errors (active in `main.ts`)
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
 

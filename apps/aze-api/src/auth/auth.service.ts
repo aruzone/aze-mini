@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
 import { UsersService } from '../users/users.service';
+import { TokenClaims } from './token-claims';
 
 const SALT_ROUNDS = 10;
 
@@ -115,14 +116,14 @@ export class AuthService {
     const user = await this.usersService.findUserByEmail(email);
 
     if (user && (await compare(password, user.password))) {
-      return { userId: user.id.toString(), email: user.email };
+      return { userId: user.id, email: user.email };
     }
 
     return null;
   }
 
   async login(user: SignInData): Promise<AuthResult> {
-    const payload = { email: user.email, sub: user.userId };
+    const payload: TokenClaims = { email: user.email, sub: user.userId };
     return {
       accessToken: this.jwtService.sign(payload),
       userId: user.userId,

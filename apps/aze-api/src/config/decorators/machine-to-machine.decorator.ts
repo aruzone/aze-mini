@@ -1,6 +1,6 @@
 import { SetMetadata, UseGuards, applyDecorators } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
-import { API_KEY_SCHEME } from '../docs';
+import { API_KEY_SCHEME } from '../security';
 import { ApiKeyGuard } from '../guards/api-key.guard';
 
 export const IS_MACHINE_TO_MACHINE = 'isMachineToMachine';

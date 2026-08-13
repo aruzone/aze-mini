@@ -59,7 +59,7 @@ npx prisma studio        # Visual DB browser
 
 NestJS app with a global API prefix (`/api`), running on port 3030.
 
-Interactive API documentation is served at `http://localhost:3030/api/docs`, with the raw spec at `/api/docs-json`. Authorize with a token from `POST /auth/register` or `/auth/login` to call protected routes from the page. Bearer auth is required document-wide, matching the global guard — `@Public()` and `@MachineToMachine()` carry their own security metadata, so what the docs claim about a route comes from the same decorator that governs it.
+Interactive API documentation is served at `http://localhost:3030/api/docs`, with the raw spec at `/api/docs-json`. Authorize with a token from `POST /auth/register` or `/auth/login` to call protected routes from the page. What the docs claim about a route's auth comes from the same decorator that governs it — see `src/config/docs.ts` below.
 
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
@@ -76,7 +76,9 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
   - `decorators/public.decorator.ts` — `@Public()` opts a route out of the global guard. Only the root/health route, login, and registration carry it
   - `decorators/machine-to-machine.decorator.ts` — `@MachineToMachine()` stands the JWT guard down and applies `ApiKeyGuard` instead; on `POST /products` only
   - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure. Never stacked on top of the JWT guard
-  - `validation.ts` — The global `ValidationPipe` (active in `main.ts`). `whitelist` + `forbidNonWhitelisted` mean an undeclared property is refused by name, not dropped
+  - `pipes/validation.pipe.ts` — The global `ValidationPipe` (active in `main.ts`). `whitelist` + `forbidNonWhitelisted` mean an undeclared property is refused by name, not dropped
+  - `security.ts` — The `x-api-key` header name and the OpenAPI scheme names, so the guards and the documentation cannot advertise different credentials
+  - `docs.ts` — Builds and serves the OpenAPI document (active in `main.ts` when `API_DOCS` allows). Bearer auth is required document-wide, mirroring the global guard; the two opt-out decorators carry their own exception
   - `api-exception.filter.ts` — Global exception filter (active in `main.ts`). It catches everything and answers in one envelope: `{ statusCode, timestamp, path, message }`. It takes `message` from the exception's own body without flattening it, which is what keeps the validation pipe's per-field array intact. Following Nest, `message` is a string for a single failure and an array of strings for a field list, so a client reading it must accept both
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
 

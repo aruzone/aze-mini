@@ -24,6 +24,7 @@ export class CreateProductDto {
   @ApiPropertyOptional({
     description: 'Replaces the linked Tags on update rather than adding to them',
     type: [String],
+    example: ['0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f'],
   })
   @IsOptional()
   @IsArray()

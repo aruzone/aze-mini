@@ -1,18 +1,20 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { API_KEY_HEADER, API_KEY_SCHEME, BEARER_SCHEME } from './security';
 
-export const DOCS_PATH = 'api/docs';
-
-export const BEARER_SCHEME = 'bearer';
-export const API_KEY_SCHEME = 'api-key';
+/** Appended to the API's global prefix, which main.ts owns. */
+export const DOCS_ROUTE = 'docs';
 
 /**
- * Bearer auth is required document-wide, matching the global guard: a route is
- * documented as protected unless it says otherwise, the same way it *is*
- * protected unless it says otherwise. `@Public()` and `@MachineToMachine()`
- * carry the exception, so the docs cannot drift from the perimeter.
+ * Bearer auth is required document-wide, mirroring the global guard of
+ * ADR-0002: a route is documented as protected unless a decorator says
+ * otherwise, exactly as it is protected unless a decorator says otherwise.
+ *
+ * Returns the path it served on, so the caller can log one truth.
  */
-export function setupDocs(app: INestApplication) {
+export function setupDocs(app: INestApplication, globalPrefix: string) {
+  const path = `${globalPrefix}/${DOCS_ROUTE}`;
+
   const config = new DocumentBuilder()
     .setTitle('Aze API')
     .setDescription(
@@ -21,14 +23,14 @@ export function setupDocs(app: INestApplication) {
     )
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, BEARER_SCHEME)
-    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, API_KEY_SCHEME)
+    .addApiKey({ type: 'apiKey', name: API_KEY_HEADER, in: 'header' }, API_KEY_SCHEME)
     .addSecurityRequirements(BEARER_SCHEME)
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-
-  SwaggerModule.setup(DOCS_PATH, app, document, {
+  SwaggerModule.setup(path, app, SwaggerModule.createDocument(app, config), {
     swaggerOptions: { persistAuthorization: true },
-    jsonDocumentUrl: `${DOCS_PATH}-json`,
+    jsonDocumentUrl: `${path}-json`,
   });
+
+  return path;
 }

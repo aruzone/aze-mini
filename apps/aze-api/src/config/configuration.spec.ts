@@ -40,10 +40,15 @@ describe('appConfig', () => {
       expect(appConfig().docsEnabled).toBe(false);
     });
 
-    it('treats any value other than true as a refusal', () => {
-      process.env.API_DOCS = 'yes';
+    // A compose file that declares API_DOCS and leaves it blank passes an
+    // empty string, not an absent variable.
+    it.each([['yes'], [''], ['TRUE'], ['1']])(
+      'treats %p as a refusal, since only "true" is consent',
+      (value) => {
+        process.env.API_DOCS = value;
 
-      expect(appConfig().docsEnabled).toBe(false);
-    });
+        expect(appConfig().docsEnabled).toBe(false);
+      },
+    );
   });
 });

@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { API_KEY_HEADER } from '../security';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -7,7 +8,7 @@ export class ApiKeyGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'];
+    const apiKey = request.headers[API_KEY_HEADER];
 
     if (apiKey !== this.configService.get<string>('API_KEY')) {
       throw new ForbiddenException('Invalid API key');

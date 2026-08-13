@@ -2,10 +2,12 @@ import { PrismaClient } from '../generated/prisma';
 import { hashPassword } from '../src/auth/password';
 
 /**
- * Demo. Delete this file with the rest of the Demo — see docs/demo.md.
+ * Demo — see docs/demo.md.
  *
  * Every record carries a fixed id or a unique name and is written with upsert,
  * so running the seed twice leaves the same rows rather than a second copy.
+ * The fixed ids share a prefix no generated uuid7 will produce, and number by
+ * kind: 1 the User, 1xx products, 2xx reviews.
  */
 
 export const DEMO_EMAIL = 'demo@example.com';
@@ -49,7 +51,7 @@ const PRODUCTS = [
 ];
 
 export async function seedDemo(db: PrismaClient) {
-  const user = await db.user.upsert({
+  await db.user.upsert({
     where: { email: DEMO_EMAIL },
     update: {},
     create: {
@@ -109,7 +111,6 @@ export async function seedDemo(db: PrismaClient) {
   }
 
   return {
-    user,
     categories: categories.size,
     tags: tags.size,
     products: PRODUCTS.length,
@@ -126,7 +127,7 @@ async function main() {
         `${counts.tags} tags and ${counts.reviews} reviews.`,
     );
     console.log(`\n  Log in as  ${DEMO_EMAIL}\n  Password   ${DEMO_PASSWORD}\n`);
-    console.log('This account is Demo. Delete it before deploying anywhere real.\n');
+    console.log('This User is Demo. Delete it before deploying anywhere real.\n');
   } finally {
     await db.$disconnect();
   }

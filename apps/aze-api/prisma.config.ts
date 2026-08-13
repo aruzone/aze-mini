@@ -8,7 +8,7 @@ import 'dotenv/config';
 export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   migrations: {
-    // Demo: delete with the rest of the Demo, along with prisma/seed.ts.
+    // Demo — see docs/demo.md.
     seed: 'ts-node --compiler-options {"module":"CommonJS"} prisma/seed.ts',
   },
 });

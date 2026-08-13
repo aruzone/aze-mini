@@ -5,18 +5,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { compare, hash } from 'bcryptjs';
+import { compare } from 'bcryptjs';
 import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { MAX_PASSWORD_BYTES, hashPassword } from './password';
 import { TokenClaims } from './token-claims';
-
-const SALT_ROUNDS = 10;
-
-// bcrypt reads only the first 72 bytes, so without a cap a longer password
-// would be interchangeable with any other sharing its first 72 bytes.
-const MAX_PASSWORD_BYTES = 72;
 
 const UNIQUE_CONSTRAINT_FAILED = 'P2002';
 
@@ -74,7 +69,7 @@ export class AuthService {
       const user = await this.usersService.create({
         email,
         name: registerInput.name,
-        password: await hash(password, SALT_ROUNDS),
+        password: await hashPassword(password),
       });
 
       return this.login({ userId: user.id, email: user.email });

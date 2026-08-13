@@ -74,8 +74,11 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
   - `decorators/public.decorator.ts` — `@Public()` opts a route out of the global guard. Only the root/health route, login, and registration carry it
   - `decorators/machine-to-machine.decorator.ts` — `@MachineToMachine()` stands the JWT guard down and applies `ApiKeyGuard` instead; on `POST /products` only
   - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure. Never stacked on top of the JWT guard
-  - `prisma.filter.ts` — Global exception filter for Prisma errors (active in `main.ts`)
+  - `validation.ts` — The global `ValidationPipe` (active in `main.ts`). `whitelist` + `forbidNonWhitelisted` mean an undeclared property is refused by name, not dropped
+  - `api-exception.filter.ts` — Global exception filter (active in `main.ts`). It catches everything and answers in one envelope: `{ statusCode, timestamp, path, message }`. It takes `message` from the exception's own body without flattening it, which is what keeps the validation pipe's per-field array intact. Following Nest, `message` is a string for a single failure and an array of strings for a field list, so a client reading it must accept both
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
+
+**Request bodies** bind to explicit DTO classes under each feature's `dto/`, validated with `class-validator`. No endpoint binds a generated Prisma input type — relations are flat ids on the wire (`categoryId`, `productId`) and the service turns them into Prisma's nested `connect`, so the generated types stop at the database layer.
 
 **Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app.
 

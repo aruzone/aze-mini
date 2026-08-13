@@ -59,11 +59,7 @@ describe('the API perimeter', () => {
 
       const res = await axios.post(
         '/api/products',
-        {
-          name: `Widget ${randomUUID()}`,
-          price: 9.99,
-          category: { connect: { id: category.data.id } },
-        },
+        { name: `Widget ${randomUUID()}`, price: 9.99, categoryId: category.data.id },
         { headers: { 'x-api-key': apiKey() }, ...anyStatus },
       );
 

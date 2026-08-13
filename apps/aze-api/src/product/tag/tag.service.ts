@@ -1,13 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma';
+import { CreateTagDto } from './dto/create-tag.dto';
+import { UpdateTagDto } from './dto/update-tag.dto';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class TagService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  create(createTagDto: Prisma.TagCreateInput) {
-    return this.databaseService.tag.create({ data: createTagDto });
+  create(createTagDto: CreateTagDto) {
+    const { productIds, ...tag } = createTagDto;
+    return this.databaseService.tag.create({
+      data: {
+        ...tag,
+        ...(productIds && { products: { connect: productIds.map((id) => ({ id })) } }),
+      },
+    });
   }
 
   findAll() {
@@ -24,10 +31,14 @@ export class TagService {
     return tag;
   }
 
-  update(id: string, updateTagDto: Prisma.TagUpdateInput) {
+  update(id: string, updateTagDto: UpdateTagDto) {
+    const { productIds, ...tag } = updateTagDto;
     return this.databaseService.tag.update({
       where: { id },
-      data: updateTagDto,
+      data: {
+        ...tag,
+        ...(productIds && { products: { set: productIds.map((pid) => ({ id: pid })) } }),
+      },
     });
   }
 

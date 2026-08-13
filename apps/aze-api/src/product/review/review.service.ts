@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class ReviewService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  create(createReviewDto: Prisma.ReviewCreateInput) {
-    return this.databaseService.review.create({ data: createReviewDto });
+  create(createReviewDto: CreateReviewDto) {
+    const { productId, ...review } = createReviewDto;
+    return this.databaseService.review.create({
+      data: { ...review, product: { connect: { id: productId } } },
+    });
   }
 
   findAll() {
@@ -24,10 +28,14 @@ export class ReviewService {
     return review;
   }
 
-  update(id: string, updateReviewDto: Prisma.ReviewUpdateInput) {
+  update(id: string, updateReviewDto: UpdateReviewDto) {
+    const { productId, ...review } = updateReviewDto;
     return this.databaseService.review.update({
       where: { id },
-      data: updateReviewDto,
+      data: {
+        ...review,
+        ...(productId !== undefined && { product: { connect: { id: productId } } }),
+      },
     });
   }
 

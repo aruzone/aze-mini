@@ -8,6 +8,8 @@ import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
 import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { TokenClaims } from './token-claims';
 
 const SALT_ROUNDS = 10;
@@ -35,15 +37,6 @@ function requirePassword(password: unknown): string {
   return password;
 }
 
-type AuthInput = {
-  email: string;
-  password: string;
-};
-
-type RegisterInput = AuthInput & {
-  name?: string;
-};
-
 type SignInData = {
   userId: string;
   email: string;
@@ -62,7 +55,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerInput: RegisterInput): Promise<AuthResult> {
+  async register(registerInput: RegisterDto): Promise<AuthResult> {
     const email = normalizeEmail(registerInput.email);
     const password = requirePassword(registerInput.password);
 
@@ -98,7 +91,7 @@ export class AuthService {
     }
   }
 
-  async authenticate(authInput: AuthInput): Promise<AuthResult | null> {
+  async authenticate(authInput: LoginDto): Promise<AuthResult | null> {
     const user = await this.validateUser(authInput);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -106,7 +99,7 @@ export class AuthService {
     return this.login(user);
   }
 
-  async validateUser(authInput: AuthInput): Promise<SignInData | null> {
+  async validateUser(authInput: LoginDto): Promise<SignInData | null> {
     // Validate before the lookup: bcrypt throws on a non-string password, and a
     // 500 for registered emails against a 401 for the rest would say which is
     // which.

@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma';
+import { CreateProductCategoryDto } from './dto/create-product-category.dto';
+import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class ProductCategoryService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  create(createProductCategoryDto: Prisma.ProductCategoryCreateInput) {
+  create(createProductCategoryDto: CreateProductCategoryDto) {
     return this.databaseService.productCategory.create({
       data: createProductCategoryDto,
     });
@@ -27,7 +28,7 @@ export class ProductCategoryService {
 
   update(
     id: number,
-    updateProductCategoryDto: Prisma.ProductCategoryUpdateInput
+    updateProductCategoryDto: UpdateProductCategoryDto
   ) {
     return this.databaseService.productCategory.update({
       where: { id },

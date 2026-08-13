@@ -7,6 +7,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
+import { DOCS_PATH, setupDocs } from './config/docs';
 import { ApiExceptionFilter } from './config/filter/api-exception.filter';
 import { validationPipe } from './config/pipes/validation.pipe';
 
@@ -27,11 +28,21 @@ async function bootstrap() {
 
   // Read from appConfig rather than re-deriving process.env.PORT here — the
   // two defaults could otherwise drift apart.
-  const port = app.get(ConfigService).get<number>('port');
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('port');
+  const docsEnabled = configService.get<boolean>('docsEnabled');
+
+  if (docsEnabled) {
+    setupDocs(app);
+  }
+
   await app.listen(port);
   Logger.log(
     `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`
   );
+  if (docsEnabled) {
+    Logger.log(`📖 API documentation: http://localhost:${port}/${DOCS_PATH}`);
+  }
 }
 
 bootstrap();

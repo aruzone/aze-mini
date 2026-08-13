@@ -59,6 +59,8 @@ npx prisma studio        # Visual DB browser
 
 NestJS app with a global API prefix (`/api`), running on port 3030.
 
+Interactive API documentation is served at `http://localhost:3030/api/docs`, with the raw spec at `/api/docs-json`. Authorize with a token from `POST /auth/register` or `/auth/login` to call protected routes from the page. Bearer auth is required document-wide, matching the global guard — `@Public()` and `@MachineToMachine()` carry their own security metadata, so what the docs claim about a route comes from the same decorator that governs it.
+
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
 - `src/auth/` — JWT authentication (`AuthService`, `AuthController`). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
@@ -86,6 +88,7 @@ NestJS app with a global API prefix (`/api`), running on port 3030.
 - `DATABASE_URL` — Postgres connection string (e.g., `postgresql://aze:aze_local_password@localhost:5432/aze?schema=public`)
 - `JWT_SECRET` — Secret for JWT signing
 - `API_KEY` — Key for the `x-api-key` guard
+- `API_DOCS` — `"true"` serves the docs, anything else withholds them. Unset means on everywhere but production
 - `NODE_ENV`, `PORT`
 
 ### Frontend (`apps/aze-client`)

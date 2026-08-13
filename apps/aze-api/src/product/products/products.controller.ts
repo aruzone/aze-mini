@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -15,6 +16,10 @@ export class ProductsController {
     return this.productsService.create(createProductDto);
   }
 
+  // Both have defaults, and the union type erases to Object, so the document
+  // would otherwise demand two values a caller never has to supply.
+  @ApiQuery({ name: 'sort', required: false, enum: ['asc', 'desc'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @Get()
   findAll(
     @Query('sort') sort: 'asc' | 'desc' = 'asc',

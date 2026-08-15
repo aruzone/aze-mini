@@ -8,10 +8,37 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
 import { setupDocs } from './config/docs';
+import { configurationProblems } from './config/configuration';
 import { ApiExceptionFilter } from './config/filter/api-exception.filter';
 import { validationPipe } from './config/pipes/validation.pipe';
 
+// The environment is already complete here: `nx serve` loads apps/aze-api/.env
+// into the task, and running the bundle directly from that directory has it
+// loaded by ConfigModule.forRoot, which importing AppModule above has already
+// run. Either way the check sees every value, and it runs before Prisma
+// connects — so an unconfigured Starter says which variable is wrong instead of
+// dying in a connect or on the first login a User attempts.
+function isConfigured() {
+  const problems = configurationProblems();
+  if (problems.length === 0) {
+    return true;
+  }
+
+  const logger = new Logger('Configuration');
+  problems.forEach((problem) => logger.error(problem));
+  logger.error('Refusing to start.');
+  // Not process.exit: stderr to a pipe — which is what `nx serve` and Docker
+  // give us — flushes asynchronously, and exiting here would discard the very
+  // message this exists to print. Returning leaves the loop to drain first.
+  process.exitCode = 1;
+  return false;
+}
+
 async function bootstrap() {
+  if (!isConfigured()) {
+    return;
+  }
+
   const app = await NestFactory.create(AppModule);
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);

@@ -19,6 +19,8 @@ docker compose up -d --wait
 # Backend: copy env and init database
 cd apps/aze-api
 cp .env.example .env
+# Replace API_KEY and JWT_SECRET in .env — the API refuses to start while
+# either still holds the placeholder it ships with
 npx prisma migrate dev
 npx prisma generate
 
@@ -92,10 +94,10 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 
 **Demo tier.** The catalogue, the seed and the seeded User are Demo: read once, then deleted. `docs/demo.md` is the inventory of what to delete and what to edit.
 
-**Environment variables** (see `apps/aze-api/.env.example`):
+**Environment variables** (see `apps/aze-api/.env.example`). `src/config/configuration.ts` is the one place the environment is read: `configurationProblems()` names what is missing or still a placeholder, and `main.ts` logs every problem at once and exits before Prisma connects, so an unconfigured Starter says which variable is wrong instead of failing later. Consumers read the values off `appConfig` (`jwtSecret`, `apiKey`) rather than reaching past it to `process.env`, so nothing can use a value the check never saw. The three below are required:
 - `DATABASE_URL` — Postgres connection string (e.g., `postgresql://aze:aze_local_password@localhost:5432/aze?schema=public`)
-- `JWT_SECRET` — Secret for JWT signing
-- `API_KEY` — Key for the `x-api-key` guard
+- `JWT_SECRET` — Secret for JWT signing. No fallback exists anywhere; an unset one stops startup
+- `API_KEY` — Key for the `x-api-key` guard. The guard refuses every request when it is unset, rather than comparing two absent values
 - `API_DOCS` — `"true"` serves the docs, anything else withholds them. Unset means on everywhere but production
 - `NODE_ENV`, `PORT`
 

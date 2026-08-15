@@ -2,6 +2,8 @@
 
 ![Alt text](apps/aze-client/public/assets/aze-logo.png "Optional title")
 
+[![CI](https://github.com/aruzone/aze-mini/actions/workflows/ci.yml/badge.svg)](https://github.com/aruzone/aze-mini/actions/workflows/ci.yml)
+
 🚀 Starter template with **Nx, Next.js, NestJS, Prisma, Docker, Kubernetes, Helm & ArgoCD** — production-ready monorepo for modern full-stack apps.
 
 # 🚀 Full-Stack Starter Template
@@ -45,7 +47,7 @@ A production-ready **starter template** built with cutting-edge tools and framew
 ## ⚡ Getting Started
 
 ### Prerequisites
-- Node.js (>=18)
+- Node.js 24 — the version in `.nvmrc`, which CI and `package.json` engines both follow. `nvm use` picks it up
 - Docker (required — Postgres runs in a container; there is no file-based database fallback)
 - Nx CLI
 - NestJc CLI

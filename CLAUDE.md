@@ -40,6 +40,16 @@ nx e2e aze-client-e2e                  # Frontend E2E (Playwright)
 nx e2e aze-api-e2e                     # Backend E2E (Jest)
 ```
 
+### CI
+
+`.github/workflows/ci.yml` runs on every pull request: one job runs `nx affected -t lint test build` against the base branch, a second applies the migrations to a Postgres service and runs the API e2e suite. Nx starts the API itself there — the `e2e` target declares `dependsOn: ["aze-api:build", "aze-api:serve"]`.
+
+It reads no repository secrets, so it runs unchanged in a fork. The `JWT_SECRET` and `API_KEY` it sets are throwaway values for a throwaway database, present because the API refuses to start without them.
+
+Node is pinned in `.nvmrc` (24), which `package.json` engines and the workflow both follow. Change one and change all three; the images added by #13 must match too.
+
+`nx affected` only sees a root-level change if `sharedGlobals` in `nx.json` names the file — that is why a lockfile or workflow edit runs the full set.
+
 ### Linting & Building
 ```bash
 nx lint aze-api

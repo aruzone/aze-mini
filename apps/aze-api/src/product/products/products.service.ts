@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
+import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -10,13 +11,18 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto) {
     const { categoryId, tagIds, ...product } = createProductDto;
-    return this.databaseService.product.create({
-      data: {
-        ...product,
-        category: { connect: { id: categoryId } },
-        ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
-      },
-    });
+    try {
+      return await this.databaseService.product.create({
+        data: {
+          ...product,
+          category: { connect: { id: categoryId } },
+          ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
+        },
+      });
+    } catch (error) {
+      await this.nameMissingRelation(error, categoryId, tagIds);
+      throw error;
+    }
   }
 
   async findAll(sort: 'asc' | 'desc', limit?: number) {
@@ -36,17 +42,61 @@ export class ProductsService {
 
   async update(id: string, updateProductDto: UpdateProductDto) {
     const { categoryId, tagIds, ...product } = updateProductDto;
-    return this.databaseService.product.update({
-      where: { id },
-      data: {
-        ...product,
-        ...(categoryId !== undefined && { category: { connect: { id: categoryId } } }),
-        ...(tagIds && { tags: { set: tagIds.map((id) => ({ id })) } }),
-      },
-    });
+    try {
+      return await this.databaseService.product.update({
+        where: { id },
+        data: {
+          ...product,
+          ...(categoryId !== undefined && { category: { connect: { id: categoryId } } }),
+          ...(tagIds && { tags: { set: tagIds.map((id) => ({ id })) } }),
+        },
+      });
+    } catch (error) {
+      await this.nameMissingRelation(error, categoryId, tagIds);
+      throw error;
+    }
   }
 
   async remove(id: string) {
     return this.databaseService.product.delete({ where: { id } });
+  }
+
+  // Prisma reports a failed connect as P2025 naming the relation, never the id
+  // that missed, so a caller who mistyped one id is told only that something
+  // was absent. These lookups run after a write has already failed: the price
+  // is paid by the request that was wrong, not by the ones that were right.
+  private async nameMissingRelation(
+    error: unknown,
+    categoryId?: number,
+    tagIds?: string[],
+  ) {
+    if (!isPrismaError(error, RECORD_NOT_FOUND)) {
+      return;
+    }
+
+    if (categoryId !== undefined) {
+      const category = await this.databaseService.productCategory.findUnique({
+        where: { id: categoryId },
+        select: { id: true },
+      });
+      if (!category) {
+        throw new NotFoundException(`Product category with ID ${categoryId} not found`);
+      }
+    }
+
+    if (tagIds?.length) {
+      const found = await this.databaseService.tag.findMany({
+        where: { id: { in: tagIds } },
+        select: { id: true },
+      });
+      const missing = tagIds.filter((tagId) => !found.some((tag) => tag.id === tagId));
+      if (missing.length > 0) {
+        throw new NotFoundException(
+          missing.length === 1
+            ? `Tag with ID ${missing[0]} not found`
+            : `Tags with IDs ${missing.join(', ')} not found`,
+        );
+      }
+    }
   }
 }

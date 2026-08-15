@@ -1,9 +1,18 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaClientKnownRequestError } from '../../../generated/prisma/runtime/library';
 import { DatabaseService } from '../../database/database.service';
 import { TagService } from './tag.service';
 
 const PRODUCT_A = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f';
 const PRODUCT_B = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e70';
+
+const connectFoundNothing = () =>
+  new PrismaClientKnownRequestError('An operation failed', {
+    code: 'P2025',
+    clientVersion: '6.19.2',
+    meta: { modelName: 'Tag', cause: 'Expected 1 records to be connected, found only 0.' },
+  });
 
 describe('TagService', () => {
   let service: TagService;
@@ -16,6 +25,7 @@ describe('TagService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    product: { findMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -65,5 +75,26 @@ describe('TagService', () => {
       where: { id: 'tag-1' },
       data: { name: 'evergreen' },
     });
+  });
+
+  // Prisma counts the rows it connected and stops there: "expected 1, found 0"
+  // is no help to a caller who sent a list.
+  it('names every product in the list that is absent', async () => {
+    mockDatabaseService.tag.create.mockRejectedValue(connectFoundNothing());
+    mockDatabaseService.product.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.create({ name: 'seasonal', productIds: [PRODUCT_A, PRODUCT_B] }),
+    ).rejects.toThrow(
+      new NotFoundException(`Products with IDs ${PRODUCT_A}, ${PRODUCT_B} not found`),
+    );
+  });
+
+  it('rethrows when every product it named exists', async () => {
+    const original = connectFoundNothing();
+    mockDatabaseService.tag.update.mockRejectedValue(original);
+    mockDatabaseService.product.findMany.mockResolvedValue([{ id: PRODUCT_B }]);
+
+    await expect(service.update('tag-1', { productIds: [PRODUCT_B] })).rejects.toBe(original);
   });
 });

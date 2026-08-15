@@ -6,14 +6,15 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
-import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
+import {
+  UNIQUE_CONSTRAINT_FAILED,
+  isPrismaError,
+} from '../database/prisma-errors';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { MAX_PASSWORD_BYTES, hashPassword } from './password';
 import { TokenClaims } from './token-claims';
-
-const UNIQUE_CONSTRAINT_FAILED = 'P2002';
 
 // Emails are compared as raw strings by the unique index and by login, so both
 // paths have to agree on one canonical form or the same mailbox gets two
@@ -75,11 +76,10 @@ export class AuthService {
       return this.login({ userId: user.id, email: user.email });
     } catch (error) {
       // The check above loses a race between two registrations of the same
-      // email; the unique index is what actually settles it.
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === UNIQUE_CONSTRAINT_FAILED
-      ) {
+      // email; the unique index is what actually settles it. The filter answers
+      // P2002 with a 409 too, but only in terms of the column that collided —
+      // this stays because registration can say it in the caller's terms.
+      if (isPrismaError(error, UNIQUE_CONSTRAINT_FAILED)) {
         throw new ConflictException('That email is already registered');
       }
       throw error;

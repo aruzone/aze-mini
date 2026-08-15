@@ -54,6 +54,18 @@
 
 ---
 
+## Cache
+
+| Technology | Version | Role |
+|---|---|---|
+| Redis | 8 (alpine) | Cache for the product read path, run via `docker compose up -d` (see `docs/adr/0005-redis-cache-fails-open.md`) |
+| `@nestjs/cache-manager` | ^3.1.3 | Nest binding for the cache |
+| `cache-manager` | ^7.2.9 | Cache API the `CacheService` wraps |
+| `@keyv/redis` | ^5.1.6 | Redis store, configured to fail fast rather than queue |
+| `keyv` | ^5.6.0 | Store interface `cache-manager` speaks |
+
+---
+
 ## Build Systems
 
 | Tool | Version | Role |

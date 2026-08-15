@@ -18,6 +18,7 @@ A production-ready **starter template** built with cutting-edge tools and framew
 - **Frontend: Next.js** – React-based framework with SSR, SSG, API routes, and full TypeScript support.  
 - **Backend: NestJS** – Scalable server-side framework for building reliable APIs and microservices.  
 - **Database: Prisma ORM** – Type-safe database client with schema-driven migrations.  
+- **Caching: Redis** – One read path cached with an explicit TTL and invalidation on write, answering `X-Cache: HIT|MISS`. Fails open: without Redis the API is slower, never broken ([ADR-0005](docs/adr/0005-redis-cache-fails-open.md)).  
 
 ## ✨ Upcoming Features 
 - **Containerization: Docker** – Seamless local development and environment parity.  
@@ -48,7 +49,7 @@ A production-ready **starter template** built with cutting-edge tools and framew
 
 ### Prerequisites
 - Node.js 24 — the version in `.nvmrc`, which CI and `package.json` engines both follow. `nvm use` picks it up
-- Docker (required — Postgres runs in a container; there is no file-based database fallback)
+- Docker (required — Postgres and Redis run in containers; there is no file-based database fallback)
 - Nx CLI
 - NestJc CLI
 
@@ -63,8 +64,8 @@ npm install
 ### Run Aze API Backend
 
 ```
-# START POSTGRES (from the repo root)
-# --wait blocks until Postgres is accepting connections
+# START POSTGRES AND REDIS (from the repo root)
+# --wait blocks until both are accepting connections
 docker compose up -d --wait
 
 # CREATE BACKEND ENV FILE
@@ -99,7 +100,7 @@ Frontend → [http://localhost:3000](http://localhost:3000)
 ## 🚀 Roadmap
 
 * [ ] Add authentication (JWT / OAuth2)
-* [ ] Integrate caching (Redis)
+* [x] Integrate caching (Redis)
 * [ ] Add CI/CD pipeline (GitHub Actions / GitLab CI)
 * [ ] Expand Helm charts with configurable values
 

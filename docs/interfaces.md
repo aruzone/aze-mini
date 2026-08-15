@@ -102,16 +102,19 @@ NAME:     Get all products
 LOCATION: apps/aze-api/src/product/products/products.controller.ts:23
 PURPOSE:  Returns paginated/sorted product list
 INPUT:    GET /api/products?sort=asc|desc&limit=number  (defaults: sort=asc, limit=10)
-OUTPUT:   Product[]
+OUTPUT:   Product[], with X-Cache: HIT|MISS
 GUARD:    [open]
+CACHE:    Redis, 60s, keyed by sort and limit; every write forgets every list (ADR-0005)
 
 TYPE:     API
 NAME:     Get product by ID
 LOCATION: apps/aze-api/src/product/products/products.controller.ts:31
 PURPOSE:  Returns a single product by UUID
 INPUT:    GET /api/products/:id
-OUTPUT:   Product object (throws 404 if not found)
+OUTPUT:   Product object (throws 404 if not found), with X-Cache: HIT|MISS
 GUARD:    [open]
+CACHE:    Redis, 60s, keyed by id; forgotten on update and delete. A 404 is
+          never cached (ADR-0005)
 
 TYPE:     API
 NAME:     Update product

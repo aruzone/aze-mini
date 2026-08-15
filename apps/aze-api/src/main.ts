@@ -7,6 +7,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
+import { CACHE_STATUS_HEADER } from './cache/cache-status';
 import { setupDocs } from './config/docs';
 import { configurationProblems } from './config/configuration';
 import { ApiExceptionFilter } from './config/filter/api-exception.filter';
@@ -48,6 +49,11 @@ async function bootstrap() {
     origin: 'http://localhost:3000', 
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true, 
+    // A browser hands script only the handful of headers it is told to. The
+    // cached routes answer with X-Cache, and the client that reads them runs
+    // in a browser, so saying nothing here would hide it from the one consumer
+    // the Starter ships (ADR-0005).
+    exposedHeaders: [CACHE_STATUS_HEADER],
   });
 
   app.useGlobalPipes(validationPipe());

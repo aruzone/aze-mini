@@ -12,8 +12,9 @@ Aze Starter is a full-stack monorepo using **Nx**, **Next.js** (frontend), **Nes
 ```bash
 npm install
 
-# Start Postgres (required — there is no file-based fallback, see docs/adr/0001)
-# --wait blocks until the healthcheck passes; without it the migrate below races startup
+# Start Postgres and Redis (Postgres is required — there is no file-based
+# fallback, see docs/adr/0001; the cache fails open without Redis, see 0005)
+# --wait blocks until the healthchecks pass; without it the migrate below races startup
 docker compose up -d --wait
 
 # Backend: copy env and init database
@@ -44,7 +45,7 @@ nx e2e aze-api-e2e                     # Backend E2E (Jest)
 
 ### CI
 
-`.github/workflows/ci.yml` runs on every pull request: one job runs `nx affected -t lint test build` against the base branch, a second applies the migrations to a Postgres service and runs the API e2e suite. Nx starts the API itself there — the `e2e` target declares `dependsOn: ["aze-api:build", "aze-api:serve"]`.
+`.github/workflows/ci.yml` runs on every pull request: one job runs `nx affected -t lint test build` against the base branch, a second applies the migrations to a Postgres service and runs the API e2e suite against it and a Redis service. Redis is not optional there — the cache specs assert hits, which a fail-open cache cannot produce without one. Nx starts the API itself there — the `e2e` target declares `dependsOn: ["aze-api:build", "aze-api:serve"]`.
 
 It reads no repository secrets, so it runs unchanged in a fork. The `JWT_SECRET` and `API_KEY` it sets are throwaway values for a throwaway database, present because the API refuses to start without them.
 
@@ -82,10 +83,11 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 - `src/auth/` — JWT authentication (`AuthService`, `AuthController`, and `password.ts`, the one place a password becomes a hash — the Demo seed uses it too). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
 - `src/users/` — `GET /users/me` only, reading the id off the verified token; also used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
 - `src/product/` — Feature group containing:
-  - `products/` — Full CRUD for products
+  - `products/` — Full CRUD for products. The two read routes go through `product-cache.ts`, the Demo of caching: keys, TTL and invalidation are all spelled out in that one file. A single product is keyed by id; lists are keyed by sort and limit under a generation token, so one deletion forgets every variant at once
   - `product-category/` — Category management
   - `review/` — Product reviews (one-to-many with Product)
   - `tag/` — Tags (many-to-many with Product)
+- `src/cache/` — Redis caching (ADR-0005). `CacheService` is the one place the Starter talks to the cache and every method fails open — a Redis that is unreachable costs a request its speed and nothing else. `redis-store.ts` configures the store to fail fast rather than queue. `cache-status.ts` names the `X-Cache: HIT|MISS` header the cached routes answer with. The module is `@Global()`
 - `src/database/` — `DatabaseService` extends `PrismaClient`; injected into all services. `prisma-errors.ts` names the Prisma error codes the API answers for (`P2025`, `P2002`) and is the one place they are spelled
 - `src/config/` — App config, guards, pipes, filters:
   - `auth.guard.ts` — JWT bearer token guard, registered globally via `APP_GUARD` (see ADR-0002); attaches `req.user`. Every route requires a token unless it opts out
@@ -108,6 +110,9 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 - `DATABASE_URL` — Postgres connection string (e.g., `postgresql://aze:aze_local_password@localhost:5432/aze?schema=public`)
 - `JWT_SECRET` — Secret for JWT signing. No fallback exists anywhere; an unset one stops startup
 - `API_KEY` — Key for the `x-api-key` guard. The guard refuses every request when it is unset, rather than comparing two absent values
+
+The rest are optional:
+- `REDIS_URL` — Redis connection string; defaults to `redis://localhost:6379`, the compose service. Deliberately not on the required list: the cache fails open, so an unreachable Redis makes the Starter slower rather than unstartable (ADR-0005)
 - `API_DOCS` — `"true"` serves the docs, anything else withholds them. Unset means on everywhere but production
 - `NODE_ENV`, `PORT`
 

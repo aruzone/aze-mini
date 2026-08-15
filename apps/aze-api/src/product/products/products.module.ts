@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ProductsService } from './products.service';
+import { ProductCache } from './product-cache';
 import { ProductsController } from './products.controller';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '../../database/database.module';
@@ -16,6 +17,6 @@ import { TagModule } from '../tag/tag.module';
     TagModule
   ],
   controllers: [ProductsController],
-  providers: [ProductsService],
+  providers: [ProductsService, ProductCache],
 })
 export class ProductsModule {}

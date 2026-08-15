@@ -9,10 +9,25 @@ describe('appConfig', () => {
     process.env = { ...original };
     delete process.env.NODE_ENV;
     delete process.env.API_DOCS;
+    delete process.env.REDIS_URL;
   });
 
   afterAll(() => {
     process.env = original;
+  });
+
+  // The compose file publishes Redis on the default port, so a clone that
+  // follows the setup has one without configuring anything.
+  describe('redisUrl', () => {
+    it('points at the compose service when nothing says otherwise', () => {
+      expect(appConfig().redisUrl).toBe('redis://localhost:6379');
+    });
+
+    it('takes the environment over the default', () => {
+      process.env.REDIS_URL = 'redis://cache.internal:6379';
+
+      expect(appConfig().redisUrl).toBe('redis://cache.internal:6379');
+    });
   });
 
   describe('docsEnabled', () => {

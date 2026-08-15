@@ -9,8 +9,9 @@ export class ApiKeyGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const apiKey = request.headers[API_KEY_HEADER];
+    const configured = this.configService.get<string>('apiKey');
 
-    if (apiKey !== this.configService.get<string>('API_KEY')) {
+    if (!configured || apiKey !== configured) {
       throw new ForbiddenException('Invalid API key');
     }
     return true;

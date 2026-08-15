@@ -69,6 +69,9 @@ docker compose up -d --wait
 cd apps/aze-api
 cp .env.example .env
 
+# Then edit .env and replace API_KEY and JWT_SECRET. Both ship as placeholders,
+# and the API refuses to start while either is still unedited.
+
 # CREATE THE DATABASE SCHEMA
 npx prisma migrate dev
 npx prisma generate

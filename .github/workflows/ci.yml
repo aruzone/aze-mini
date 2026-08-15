@@ -1,0 +1,95 @@
+name: CI
+
+# Pull requests only. Nothing here reads a repository secret, so this workflow
+# runs unchanged in an Adopter's fork from the first push.
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nx compares against the base branch, which needs its history.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # apps/aze-api/generated/prisma is not committed, and the API imports
+      # from it — without this the build cannot resolve the client.
+      - name: Generate the Prisma client
+        run: npx prisma generate
+        working-directory: apps/aze-api
+
+      # checkout leaves the base as a bare object, not a branch Nx can name.
+      - name: Fetch the base branch
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Lint, test and build what this branch touched
+        run: npx nx affected -t lint test build --base=origin/${{ github.base_ref }} --head=HEAD
+
+  e2e:
+    name: API end to end
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Matches the image in docker-compose.yml, so CI and a local clone
+        # answer to the same Postgres.
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: aze
+          POSTGRES_PASSWORD: aze_local_password
+          POSTGRES_DB: aze
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aze -d aze"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://aze:aze_local_password@localhost:5432/aze?schema=public
+      # Throwaway values for a throwaway database, deliberately not secrets: an
+      # Adopter's fork has to be able to run this without configuring anything.
+      # They are set because the API refuses to start without them, and because
+      # the e2e suite offers API_KEY to the machine-to-machine route.
+      JWT_SECRET: ci-not-a-real-secret
+      API_KEY: ci-not-a-real-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+        working-directory: apps/aze-api
+
+      # deploy, not dev: applies the committed migrations and never generates a
+      # new one, so a schema change that was not migrated fails here.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/aze-api
+
+      # The e2e target depends on aze-api:build and aze-api:serve, so Nx starts
+      # the API itself against the service above and stops it afterwards.
+      - name: Run the API e2e suite
+        run: npx nx e2e aze-api-e2e

@@ -4,6 +4,9 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
   "devDependencies": {
     "@eslint/compat": "^1.4.1",
     "@eslint/eslintrc": "^3.3.4",

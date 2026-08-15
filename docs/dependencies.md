@@ -14,7 +14,11 @@ Source: `package.json` at workspace root.
 | `@nestjs/jwt` | ^11.0.0 | JWT signing and verification for authentication | runtime |
 | `@nestjs/mapped-types` | * | DTO type mapping utilities (PartialType etc.) | runtime |
 | `@nestjs/platform-express` | ^11.0.0 | Express HTTP adapter for NestJS | runtime |
+| `@keyv/redis` | ^5.1.6 | Redis store behind the cache, set to fail open (ADR-0005) | runtime |
+| `@nestjs/cache-manager` | ^3.1.3 | Nest binding for the cache | runtime |
 | `@prisma/client` | ^6.16.2 | Generated Prisma database client | runtime |
+| `cache-manager` | ^7.2.9 | Cache API wrapped by `CacheService` | runtime |
+| `keyv` | ^5.6.0 | Store interface `cache-manager` speaks | runtime |
 | `axios` | ^1.6.0 | HTTP client (available, not yet used in source) | runtime |
 | `next` | ~15.2.4 | Next.js framework for frontend | runtime |
 | `react` | 19.0.0 | React UI library | runtime |

@@ -60,8 +60,21 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      redis:
+        # Matches the image in docker-compose.yml. The cache e2e specs assert
+        # hits, which a fail-open cache cannot produce without a real Redis.
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DATABASE_URL: postgresql://aze:aze_local_password@localhost:5432/aze?schema=public
+      REDIS_URL: redis://localhost:6379
       # Throwaway values for a throwaway database, deliberately not secrets: an
       # Adopter's fork has to be able to run this without configuring anything.
       # They are set because the API refuses to start without them, and because

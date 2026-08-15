@@ -4,21 +4,28 @@ import { ConfigService } from '@nestjs/config';
 import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductCache } from './product-cache';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly databaseService: DatabaseService, private readonly configService: ConfigService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly configService: ConfigService,
+    private readonly cache: ProductCache,
+  ) {}
 
   async create(createProductDto: CreateProductDto) {
     const { categoryId, tagIds, ...product } = createProductDto;
     try {
-      return await this.databaseService.product.create({
+      const created = await this.databaseService.product.create({
         data: {
           ...product,
           category: { connect: { id: categoryId } },
           ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
         },
       });
+      await this.cache.forgetList();
+      return created;
     } catch (error) {
       await this.nameMissingRelation(error, categoryId, tagIds);
       throw error;
@@ -26,24 +33,28 @@ export class ProductsService {
   }
 
   async findAll(sort: 'asc' | 'desc', limit?: number) {
-    return this.databaseService.product.findMany({
-      orderBy: { id: sort },
-      take: limit,
-    });
+    return this.cache.readList(sort, limit, () =>
+      this.databaseService.product.findMany({
+        orderBy: { id: sort },
+        take: limit,
+      }),
+    );
   }
 
   async findOne(id: string) {
-    const product = await this.databaseService.product.findUnique({ where: { id } });
-    if(!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-    return product;
+    return this.cache.readOne(id, async () => {
+      const product = await this.databaseService.product.findUnique({ where: { id } });
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${id} not found`);
+      }
+      return product;
+    });
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
     const { categoryId, tagIds, ...product } = updateProductDto;
     try {
-      return await this.databaseService.product.update({
+      const updated = await this.databaseService.product.update({
         where: { id },
         data: {
           ...product,
@@ -51,6 +62,8 @@ export class ProductsService {
           ...(tagIds && { tags: { set: tagIds.map((id) => ({ id })) } }),
         },
       });
+      await this.cache.forget(id);
+      return updated;
     } catch (error) {
       await this.nameMissingRelation(error, categoryId, tagIds);
       throw error;
@@ -58,7 +71,9 @@ export class ProductsService {
   }
 
   async remove(id: string) {
-    return this.databaseService.product.delete({ where: { id } });
+    const removed = await this.databaseService.product.delete({ where: { id } });
+    await this.cache.forget(id);
+    return removed;
   }
 
   // Prisma reports a failed connect as P2025 naming the relation, never the id

@@ -28,6 +28,7 @@ Workspace (Nx)
 | Categories | `src/product/product-category/` | Product category management |
 | Reviews | `src/product/review/` | Product reviews (one-to-many with Product) |
 | Tags | `src/product/tag/` | Product tags (many-to-many with Product) |
+| Cache | `src/cache/` | `CacheService` over Redis, failing open on every call (ADR-0005) |
 | Database | `src/database/` | `DatabaseService` extends `PrismaClient`, connects on module init |
 | Config | `src/config/` | App configuration, guards, pipes, exception filters |
 

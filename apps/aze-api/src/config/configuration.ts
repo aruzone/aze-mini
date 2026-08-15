@@ -33,6 +33,9 @@ export const appConfig = () => {
     jwtSecret: process.env.JWT_SECRET?.trim(),
     apiKey: process.env.API_KEY?.trim(),
     environment,
+    // Defaulted rather than demanded: the cache fails open (ADR-0005), so an
+    // Adopter who has not started Redis gets a slower Starter, not a broken one.
+    redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
     // The docs describe every route and the shape of every body, which is a map
     // an Adopter may not want to publish. Off in production unless asked for,
     // on everywhere else unless refused.

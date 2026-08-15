@@ -14,6 +14,7 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api/prisma/seed.ts` | Seeds the Demo User and catalogue |
 | `apps/aze-api/prisma/seed.spec.ts` | Covers that seed |
 | `apps/aze-api-e2e/src/aze-api/validation.spec.ts` | Exercises validation through catalogue routes |
+| `apps/aze-api-e2e/src/aze-api/cache.spec.ts` | Proves the catalogue read path is cached and invalidated |
 | `apps/aze-client/src/components/MyComponent.tsx` | Fetches and lists the catalogue from the API |
 | `apps/aze-client/src/app/api/hello/` | The example Next.js route handler |
 
@@ -30,6 +31,10 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks |
 | `apps/aze-client-e2e/` | Its assertions follow whatever you leave on the page |
+
+### The cache, which is both
+
+`apps/aze-api/src/product/products/product-cache.ts` is the Demo of caching and goes with the rest of `src/product/`. Everything under `apps/aze-api/src/cache/` is Platform, along with the `redis` compose service: keep it, and nothing in it needs editing when the catalogue leaves. Read `product-cache.ts` once for the pattern — a key, a TTL, and a write that forgets what it changed — then write your own in front of your own read path (ADR-0005).
 
 ## Documentation that describes the Demo
 

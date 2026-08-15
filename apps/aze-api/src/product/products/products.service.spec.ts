@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '../../../generated/prisma/runtime/library';
 import { ProductsService } from './products.service';
+import { ProductCache } from './product-cache';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -32,14 +33,35 @@ describe('ProductsService', () => {
 
   const mockConfigService = { get: jest.fn() };
 
+  const mockProductCache = {
+    readOne: jest.fn(),
+    readList: jest.fn(),
+    forget: jest.fn(),
+    forgetList: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    // The cache seam is exercised on its own in product-cache.spec.ts. Here it
+    // stands in as a cache that never has the answer, so these keep describing
+    // what the service asks the database.
+    mockProductCache.readOne.mockImplementation(
+      async (_id: string, load: () => Promise<unknown>) => ({ value: await load(), hit: false }),
+    );
+    mockProductCache.readList.mockImplementation(
+      async (_sort: string, _limit: number, load: () => Promise<unknown>) => ({
+        value: await load(),
+        hit: false,
+      }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
         { provide: DatabaseService, useValue: mockDatabaseService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: ProductCache, useValue: mockProductCache },
       ],
     }).compile();
 
@@ -86,6 +108,62 @@ describe('ProductsService', () => {
         where: { id: 'product-1' },
         data: { category: { connect: { id: 7 } } },
       });
+    });
+  });
+
+  // A cache nobody invalidates is a bug with a timer on it. These pin which
+  // writes forget what — the reading half is product-cache.spec.ts.
+  describe('caching', () => {
+    it('reads one product through the cache, keyed by its id', async () => {
+      mockDatabaseService.product.findUnique.mockResolvedValue({ id: 'product-1' });
+
+      const read = await service.findOne('product-1');
+
+      expect(mockProductCache.readOne).toHaveBeenCalledWith('product-1', expect.any(Function));
+      expect(read).toEqual({ value: { id: 'product-1' }, hit: false });
+    });
+
+    it('reads the list through the cache, keyed by sort and limit', async () => {
+      mockDatabaseService.product.findMany.mockResolvedValue([]);
+
+      await service.findAll('desc', 25);
+
+      expect(mockProductCache.readList).toHaveBeenCalledWith('desc', 25, expect.any(Function));
+    });
+
+    it('still answers 404 for a product that is not there', async () => {
+      mockDatabaseService.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne('product-1')).rejects.toThrow(
+        new NotFoundException('Product with ID product-1 not found'),
+      );
+    });
+
+    it('forgets the lists a new product belongs in', async () => {
+      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 });
+
+      expect(mockProductCache.forgetList).toHaveBeenCalled();
+    });
+
+    it('forgets a product it has updated', async () => {
+      await service.update('product-1', { name: 'Widget II' });
+
+      expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
+    });
+
+    it('forgets a product it has deleted', async () => {
+      await service.remove('product-1');
+
+      expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
+    });
+
+    // Invalidating after a write that failed would throw away a cache entry
+    // that still matches the row, for no gain.
+    it('forgets nothing when the write did not happen', async () => {
+      mockDatabaseService.product.update.mockRejectedValue(new Error('the pool is gone'));
+
+      await expect(service.update('product-1', { name: 'Widget II' })).rejects.toThrow();
+      expect(mockProductCache.forget).not.toHaveBeenCalled();
     });
   });
 

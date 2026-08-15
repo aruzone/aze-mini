@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { ProductsModule } from '../product/products/products.module';
 import { ConfigModule } from '@nestjs/config';
 import { appConfig } from '../config/configuration';
+import { CacheModule } from '../cache/cache.module';
 import { DatabaseModule } from '../database/database.module';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
@@ -16,6 +17,7 @@ import { UsersModule } from '../users/users.module';
       isGlobal: true,
       load: [appConfig]
     }),
+    CacheModule,
     ProductsModule,
     DatabaseModule,
     AuthModule,

@@ -25,5 +25,22 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:8-alpine
+    container_name: aze-redis
+    restart: unless-stopped
+    # Loopback for the same reason Postgres is, and with more force: Redis has
+    # no password here at all.
+    ports:
+      - '127.0.0.1:6379:6379'
+    # No volume, deliberately. Everything in here is a copy of a row in
+    # Postgres, and the API answers correctly with an empty cache (ADR-0005),
+    # so persisting it across restarts would only preserve staleness.
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:

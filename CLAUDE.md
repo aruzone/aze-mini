@@ -21,6 +21,9 @@ cd apps/aze-api
 cp .env.example .env
 npx prisma migrate dev
 npx prisma generate
+
+# Seed the Demo User and catalogue. Prints the login to use; safe to re-run
+npx prisma db seed
 ```
 
 ### Running
@@ -47,10 +50,11 @@ nx build aze-client     # Next.js build
 
 ### Prisma
 ```bash
-# Run from apps/aze-api or workspace root with npx
+# Run from apps/aze-api — prisma.config.ts lives there and names the schema
 npx prisma migrate dev   # Apply migrations & regenerate client
 npx prisma generate      # Regenerate client after schema changes
 npx prisma studio        # Visual DB browser
+npx prisma db seed       # Demo User and catalogue; safe to re-run
 ```
 
 ## Architecture
@@ -63,7 +67,7 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
-- `src/auth/` — JWT authentication (`AuthService`, `AuthController`). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
+- `src/auth/` — JWT authentication (`AuthService`, `AuthController`, and `password.ts`, the one place a password becomes a hash — the Demo seed uses it too). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
 - `src/users/` — `GET /users/me` only, reading the id off the verified token; also used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
 - `src/product/` — Feature group containing:
   - `products/` — Full CRUD for products
@@ -84,7 +88,9 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 
 **Request bodies** bind to explicit DTO classes under each feature's `dto/`, validated with `class-validator`. No endpoint binds a generated Prisma input type — relations are flat ids on the wire (`categoryId`, `productId`) and the service turns them into Prisma's nested `connect`, so the generated types stop at the database layer.
 
-**Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app.
+**Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app. `apps/aze-api/prisma.config.ts` names the schema and the seed command, and loads `.env` itself — Prisma stops doing that once a config file exists.
+
+**Demo tier.** The catalogue, the seed and the seeded User are Demo: read once, then deleted. `docs/demo.md` is the inventory of what to delete and what to edit.
 
 **Environment variables** (see `apps/aze-api/.env.example`):
 - `DATABASE_URL` — Postgres connection string (e.g., `postgresql://aze:aze_local_password@localhost:5432/aze?schema=public`)

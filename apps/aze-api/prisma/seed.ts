@@ -6,8 +6,10 @@ import { hashPassword } from '../src/auth/password';
  *
  * Every record carries a fixed id or a unique name and is written with upsert,
  * so running the seed twice leaves the same rows rather than a second copy.
- * The fixed ids share a prefix no generated uuid7 will produce, and number by
- * kind: 1 the User, 1xx products, 2xx reviews.
+ *
+ * The fixed ids are ordinary uuid7s whose timestamp is a moment already past
+ * (2025-04-01), so no id generated from now on can collide with one. They
+ * number by kind: 1 the User, 1xx products, 2xx reviews.
  */
 
 export const DEMO_EMAIL = 'demo@example.com';
@@ -51,15 +53,14 @@ const PRODUCTS = [
 ];
 
 export async function seedDemo(db: PrismaClient) {
+  // The password is rewritten, not left alone: the seed prints these
+  // credentials as fact, and an existing Demo User whose password had been
+  // changed would make that a lie.
+  const password = await hashPassword(DEMO_PASSWORD);
   await db.user.upsert({
     where: { email: DEMO_EMAIL },
-    update: {},
-    create: {
-      id: DEMO_USER_ID,
-      email: DEMO_EMAIL,
-      name: 'Demo User',
-      password: await hashPassword(DEMO_PASSWORD),
-    },
+    update: { name: 'Demo User', password },
+    create: { id: DEMO_USER_ID, email: DEMO_EMAIL, name: 'Demo User', password },
   });
 
   const categoryNames = [...new Set(PRODUCTS.map((product) => product.category))];

@@ -31,6 +31,18 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks |
 | `apps/aze-client-e2e/` | Its assertions follow whatever you leave on the page |
 
+## Documentation that describes the Demo
+
+These do not break anything if left, but they will describe models and routes that no longer exist.
+
+| Where | What describes the Demo |
+| --- | --- |
+| `docs/interfaces.md` | The catalogue endpoints, in detail |
+| `docs/data-contracts.md` | The `Product`, `ProductCategory`, `Review` and `Tag` entities, and the controller table |
+| `docs/architecture-overview.md` | The `src/product/` feature group |
+| `CLAUDE.md` | The `src/product/` bullet, the Demo tier note, and `npx prisma db seed` in the setup and Prisma sections |
+| `README.md` | Whatever it says about the catalogue |
+
 ## The Demo User
 
 `prisma/seed.ts` creates `demo@example.com` with a known password, printed when the seed runs. It is a real User with a real hash — written through the same function registration uses — so it keeps working after the catalogue is gone.

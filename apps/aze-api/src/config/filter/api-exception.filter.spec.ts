@@ -82,6 +82,35 @@ describe('ApiExceptionFilter', () => {
     );
   });
 
+  // ApiErrorResponse says `message` is a string or a list of them, and a caller
+  // reading it has only those two cases to handle. A thrown body that put
+  // something else there would otherwise reach the wire and break that promise.
+  it('falls back to the exception message when the body carries no readable one', () => {
+    const { response, json } = spyingResponse();
+
+    new ApiExceptionFilter().catch(
+      new BadRequestException({ statusCode: 400, message: { field: 'name' } }),
+      hostFor(response),
+    );
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 400, message: 'Bad Request Exception' }),
+    );
+  });
+
+  it('falls back when the thrown body is not an object at all', () => {
+    const { response, json } = spyingResponse();
+    const exception = new BadRequestException();
+    jest.spyOn(exception, 'getResponse').mockReturnValue(null as unknown as string);
+
+    new ApiExceptionFilter().catch(exception, hostFor(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 400, message: 'Bad Request' }),
+    );
+  });
+
   // A write naming a row that is not there is the caller's mistake. Left
   // unnamed it fell through to the 500 default, which says the Starter is
   // broken when the request simply named the wrong id.

@@ -104,7 +104,7 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
   - `api-exception.filter.ts` — Global exception filter (active in `main.ts`). It catches everything and answers in one envelope: `{ statusCode, timestamp, path, message }`. It takes `message` from the exception's own body without flattening it, which is what keeps the validation pipe's per-field array intact. Following Nest, `message` is a string for a single failure and an array of strings for a field list, so a client reading it must accept both. It also names two Prisma failures rather than letting them reach the 500 default: `P2025` (a row the write needed was not there) answers 404, `P2002` (a unique index) answers 409 naming the column that collided. Anything still answering 5xx is logged with its stack — the body deliberately carries no detail, so the log is the only place the cause survives
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
 
-**Request bodies** bind to explicit DTO classes under each feature's `dto/`, validated with `class-validator`. No endpoint binds a generated Prisma input type — relations are flat ids on the wire (`categoryId`, `productId`) and the service turns them into Prisma's nested `connect`, so the generated types stop at the database layer. When a `connect` finds nothing, Prisma names the relation but never the id that missed, so the service looks up the ids the request supplied — only on the failing path — and answers 404 naming the one that is absent.
+**Request bodies** bind to explicit DTO classes under each feature's `dto/`, validated with `class-validator`, each declaring `implements` against the matching contract in `libs/` (below). No endpoint binds a generated Prisma input type — relations are flat ids on the wire (`categoryId`, `productId`) and the service turns them into Prisma's nested `connect`, so the generated types stop at the database layer. When a `connect` finds nothing, Prisma names the relation but never the id that missed, so the service looks up the ids the request supplied — only on the failing path — and answers 404 naming the one that is absent.
 
 **Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app. `apps/aze-api/prisma.config.ts` names the schema and the seed command, and loads `.env` itself — Prisma stops doing that once a config file exists.
 
@@ -120,6 +120,17 @@ The rest are optional:
 - `API_DOCS` — `"true"` serves the docs, anything else withholds them. Unset means on everywhere but production
 - `NODE_ENV`, `PORT`
 
+### Shared contracts (`libs/`)
+
+The shapes that cross the wire, as plain types depending on nothing — not Nest, not Prisma, not React — so both applications declare themselves against them rather than restating them. Split by tier so that removing the Demo stays a delete (ADR-0006):
+
+- `libs/platform-contracts` → `@aze-mini/platform-contracts`, tagged `tier:platform`. `RegisterRequest`, `LoginRequest`, `AuthResponse`, `UserProfile`, `ApiErrorResponse` — the envelope `ApiExceptionFilter` writes — and `Wire<T>`, which maps every `Date` in a contract to the string JSON delivers, so a client reads the same declaration the API returns
+- `libs/demo-contracts` → `@aze-mini/demo-contracts`, tagged `tier:demo`. `Product`, `ProductCategory`, `Review`, `Tag`, their create/update request bodies, and `ProductSort`
+
+`@nx/enforce-module-boundaries` in `eslint.config.mjs` refuses a `tier:platform` project any dependency on a `tier:demo` one. That works between projects; the API is one project holding both tiers, so `src/product/demo-contracts.spec.ts` reads the source to check the same containment there, and is deleted with the rest of the Demo. The client has neither guard — `docs/demo.md` names its Demo files instead.
+
+A DTO's `implements` checks its fields against the contract; it cannot check that the validation decorators agree with it.
+
 ### Frontend (`apps/aze-client`)
 
 Next.js 15 app (React 19) with Tailwind CSS, running on port 3000.
@@ -133,6 +144,8 @@ CORS is configured on the backend to allow `http://localhost:3000`.
 ### Nx Workspace
 
 `nx.json` configures plugins for Next.js, Jest, ESLint, Webpack, and Playwright. All Nx targets (`build`, `serve`, `test`, `lint`, `e2e`) are inferred via these plugins. The `aze-api` project has an explicit `project.json` for its build targets using webpack-cli.
+
+The `libs/` packages are unbuildable source libraries: `tsconfig.base.json` `paths` maps each import path at its `src/index.ts`, and the webpack and Next builds compile them from source. There is no build step to run before serving.
 
 ## Agent skills
 

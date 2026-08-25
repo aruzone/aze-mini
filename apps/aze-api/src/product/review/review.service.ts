@@ -1,3 +1,4 @@
+import { Review } from '@aze-mini/demo-contracts';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
@@ -8,7 +9,7 @@ import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
 export class ReviewService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async create(createReviewDto: CreateReviewDto) {
+  async create(createReviewDto: CreateReviewDto): Promise<Review> {
     const { productId, ...review } = createReviewDto;
     try {
       return await this.databaseService.review.create({
@@ -20,11 +21,11 @@ export class ReviewService {
     }
   }
 
-  findAll() {
+  findAll(): Promise<Review[]> {
     return this.databaseService.review.findMany();
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<Review> {
     const review = await this.databaseService.review.findUnique({
       where: { id },
     });
@@ -34,7 +35,7 @@ export class ReviewService {
     return review;
   }
 
-  async update(id: string, updateReviewDto: UpdateReviewDto) {
+  async update(id: string, updateReviewDto: UpdateReviewDto): Promise<Review> {
     const { productId, ...review } = updateReviewDto;
     try {
       return await this.databaseService.review.update({
@@ -50,7 +51,7 @@ export class ReviewService {
     }
   }
 
-  remove(id: string) {
+  remove(id: string): Promise<Review> {
     return this.databaseService.review.delete({ where: { id } });
   }
 

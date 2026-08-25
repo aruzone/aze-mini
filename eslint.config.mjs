@@ -23,6 +23,13 @@ export default [
               sourceTag: '*',
               onlyDependOnLibsWithTags: ['*'],
             },
+            // Deleting the Demo is meant to be a delete rather than an edit
+            // (docs/demo.md, ADR-0006). That holds only while nothing the
+            // Adopter keeps points at something they are told to remove.
+            {
+              sourceTag: 'tier:platform',
+              onlyDependOnLibsWithTags: ['tier:platform'],
+            },
           ],
         },
       ],

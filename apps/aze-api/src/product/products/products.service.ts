@@ -1,3 +1,4 @@
+import { Product, ProductSort } from '@aze-mini/demo-contracts';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
@@ -5,7 +6,7 @@ import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
 import { refuseIfReferenced } from '../../database/referenced-rows';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductCache } from './product-cache';
+import { CachedRead, ProductCache } from './product-cache';
 
 @Injectable()
 export class ProductsService {
@@ -15,7 +16,7 @@ export class ProductsService {
     private readonly cache: ProductCache,
   ) {}
 
-  async create(createProductDto: CreateProductDto) {
+  async create(createProductDto: CreateProductDto): Promise<Product> {
     const { categoryId, tagIds, ...product } = createProductDto;
     try {
       const created = await this.databaseService.product.create({
@@ -33,7 +34,7 @@ export class ProductsService {
     }
   }
 
-  async findAll(sort: 'asc' | 'desc', limit?: number) {
+  async findAll(sort: ProductSort, limit?: number): Promise<CachedRead<Product[]>> {
     return this.cache.readList(sort, limit, () =>
       this.databaseService.product.findMany({
         orderBy: { id: sort },
@@ -42,7 +43,7 @@ export class ProductsService {
     );
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<CachedRead<Product>> {
     return this.cache.readOne(id, async () => {
       const product = await this.databaseService.product.findUnique({ where: { id } });
       if (!product) {
@@ -52,7 +53,7 @@ export class ProductsService {
     });
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
     const { categoryId, tagIds, ...product } = updateProductDto;
     try {
       const updated = await this.databaseService.product.update({
@@ -71,7 +72,7 @@ export class ProductsService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<Product> {
     await refuseIfReferenced(
       `Product with ID ${id}`,
       { one: 'review', many: 'reviews' },

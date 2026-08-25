@@ -1,15 +1,15 @@
 'use client';
 
+import { Product } from '@aze-mini/demo-contracts';
+import { Wire } from '@aze-mini/platform-contracts';
 import { useState, useEffect } from 'react';
 
-interface ApiData {
-  id: number;
-  name: string;
-  price: number;
-}
+// The catalogue as it arrives: the same Product the API answers with, with the
+// timestamps as the strings JSON left them. Neither is redeclared here.
+type CatalogueEntry = Wire<Product>;
 
 export default function MyComponent() {
-  const [data, setData] = useState<ApiData[]>([]);
+  const [data, setData] = useState<CatalogueEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export default function MyComponent() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const result: ApiData[] = await response.json();
+        const result: CatalogueEntry[] = await response.json();
         setData(result.slice(0, 5)); // Limit to first 5 items
         setError(null);
       } catch (err) {

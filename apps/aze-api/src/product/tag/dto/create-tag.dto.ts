@@ -1,7 +1,8 @@
+import { CreateTagRequest } from '@aze-mini/demo-contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class CreateTagDto {
+export class CreateTagDto implements CreateTagRequest {
   @ApiProperty({ example: 'seasonal' })
   @IsString()
   @IsNotEmpty()

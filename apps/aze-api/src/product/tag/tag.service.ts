@@ -1,3 +1,4 @@
+import { Tag } from '@aze-mini/demo-contracts';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
@@ -8,7 +9,7 @@ import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
 export class TagService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async create(createTagDto: CreateTagDto) {
+  async create(createTagDto: CreateTagDto): Promise<Tag> {
     const { productIds, ...tag } = createTagDto;
     try {
       return await this.databaseService.tag.create({
@@ -23,11 +24,11 @@ export class TagService {
     }
   }
 
-  findAll() {
+  findAll(): Promise<Tag[]> {
     return this.databaseService.tag.findMany();
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<Tag> {
     const tag = await this.databaseService.tag.findUnique({
       where: { id },
     });
@@ -37,7 +38,7 @@ export class TagService {
     return tag;
   }
 
-  async update(id: string, updateTagDto: UpdateTagDto) {
+  async update(id: string, updateTagDto: UpdateTagDto): Promise<Tag> {
     const { productIds, ...tag } = updateTagDto;
     try {
       return await this.databaseService.tag.update({
@@ -53,7 +54,7 @@ export class TagService {
     }
   }
 
-  remove(id: string) {
+  remove(id: string): Promise<Tag> {
     return this.databaseService.tag.delete({ where: { id } });
   }
 

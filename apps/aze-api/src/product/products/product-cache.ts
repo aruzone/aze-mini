@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { ProductSort } from '@aze-mini/demo-contracts';
 import { Injectable } from '@nestjs/common';
 import { CacheService } from '../../cache/cache.service';
 
@@ -38,7 +39,7 @@ export class ProductCache {
   }
 
   async readList<T>(
-    sort: 'asc' | 'desc',
+    sort: ProductSort,
     limit: number | undefined,
     load: () => Promise<T>,
   ): Promise<CachedRead<T>> {
@@ -72,7 +73,7 @@ export class ProductCache {
   // deletion invalidates a set whose members were never enumerated. The keys
   // themselves are left to their own expiry rather than scanned for and
   // deleted, which is what keeps invalidation O(1) at any catalogue size.
-  private async listKey(sort: 'asc' | 'desc', limit: number | undefined) {
+  private async listKey(sort: ProductSort, limit: number | undefined) {
     const generation = await this.currentGeneration();
     return `products:list:${generation}:${sort}:${limit ?? 'all'}`;
   }

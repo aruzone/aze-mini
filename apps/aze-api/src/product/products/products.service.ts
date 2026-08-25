@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
 import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
+import { refuseIfReferenced } from '../../database/referenced-rows';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductCache } from './product-cache';
@@ -71,6 +72,11 @@ export class ProductsService {
   }
 
   async remove(id: string) {
+    await refuseIfReferenced(
+      `Product with ID ${id}`,
+      { one: 'review', many: 'reviews' },
+      () => this.databaseService.review.count({ where: { productId: id } }),
+    );
     const removed = await this.databaseService.product.delete({ where: { id } });
     await this.cache.forget(id);
     return removed;

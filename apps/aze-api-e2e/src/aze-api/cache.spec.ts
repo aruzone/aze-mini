@@ -1,33 +1,16 @@
-import { randomUUID } from 'node:crypto';
 import axios, { AxiosResponse } from 'axios';
-import { apiKey } from '../support/api-key';
-import { anyStatus, asUser, registerUser } from '../support/users';
-
-const withKey = { headers: { 'x-api-key': apiKey() }, ...anyStatus };
+import { createCatalogueProduct } from '../support/catalogue';
+import { asUser, registerUser } from '../support/users';
 
 const cacheHeader = (res: AxiosResponse) => res.headers['x-cache'];
-
-async function createProduct(token: string) {
-  const category = await axios.post(
-    '/api/categories',
-    { name: `Widgets ${randomUUID()}` },
-    asUser(token),
-  );
-  const product = await axios.post(
-    '/api/products',
-    { name: `Widget ${randomUUID()}`, price: 9.99, categoryId: category.data.id },
-    withKey,
-  );
-  return product.data.id as string;
-}
 
 /**
  * Reads a list twice and answers with the second read.
  *
  * Every list key hangs off one generation, which any product written anywhere
- * in this suite forgets — including from a spec file Jest is running in another
- * worker. A single retry loop is the difference between asserting that the
- * cache works and asserting that nobody else wrote a product just then.
+ * in this suite forgets. The suite runs one spec file at a time for that
+ * reason, and this loop covers what serialising cannot: a write from outside
+ * the suite entirely.
  */
 async function readListTwice(query: string, token: string): Promise<AxiosResponse> {
   let second = await axios.get(query, asUser(token));
@@ -51,7 +34,7 @@ describe('the cached read path', () => {
   });
 
   it('serves a second read of the same product from the cache', async () => {
-    const id = await createProduct(token);
+    const id = await createCatalogueProduct(token);
 
     const first = await axios.get(`/api/products/${id}`, asUser(token));
     const second = await axios.get(`/api/products/${id}`, asUser(token));
@@ -70,7 +53,7 @@ describe('the cached read path', () => {
   // A cache that is not invalidated is worse than no cache: it answers with a
   // price that is no longer the price.
   it('forgets a product the moment it changes', async () => {
-    const id = await createProduct(token);
+    const id = await createCatalogueProduct(token);
     await axios.get(`/api/products/${id}`, asUser(token));
 
     const updated = await axios.patch(`/api/products/${id}`, { price: 19.99 }, asUser(token));
@@ -83,7 +66,7 @@ describe('the cached read path', () => {
   });
 
   it('forgets a product that has been deleted', async () => {
-    const id = await createProduct(token);
+    const id = await createCatalogueProduct(token);
     await axios.get(`/api/products/${id}`, asUser(token));
 
     await axios.delete(`/api/products/${id}`, asUser(token));
@@ -97,7 +80,7 @@ describe('the cached read path', () => {
   it('forgets every list, whatever it was sorted and limited by', async () => {
     expect(cacheHeader(await readListTwice('/api/products?sort=desc&limit=3', token))).toBe('HIT');
 
-    await createProduct(token);
+    await createCatalogueProduct(token);
 
     const afterWrite = await axios.get('/api/products?sort=desc&limit=3', asUser(token));
     expect(cacheHeader(afterWrite)).toBe('MISS');

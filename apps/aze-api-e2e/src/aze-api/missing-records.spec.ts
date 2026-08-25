@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import axios from 'axios';
 import { apiKey } from '../support/api-key';
+import { createCategory as newCategory } from '../support/catalogue';
 import { anyStatus, asUser, registerUser } from '../support/users';
 
 const withKey = { headers: { 'x-api-key': apiKey() }, ...anyStatus };
@@ -11,14 +12,13 @@ const ABSENT_CATEGORY_ID = 999999;
 
 const message = (data: unknown) => JSON.stringify((data as { message: unknown }).message);
 
+// These specs need the User and the category name as well as the id, so they
+// wrap the shared helper rather than calling it bare.
 async function createCategory() {
   const user = await registerUser();
-  const res = await axios.post(
-    '/api/categories',
-    { name: `Widgets ${randomUUID()}` },
-    asUser(user.accessToken),
-  );
-  return { id: res.data.id as number, name: res.data.name as string, user };
+  const id = await newCategory(user.accessToken);
+  const res = await axios.get(`/api/categories/${id}`, asUser(user.accessToken));
+  return { id, name: res.data.name as string, user };
 }
 
 async function createProduct() {

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '../../../generated/prisma/runtime/library';
 import { ProductsService } from './products.service';
@@ -29,6 +29,7 @@ describe('ProductsService', () => {
     },
     productCategory: { findUnique: jest.fn() },
     tag: { findMany: jest.fn() },
+    review: { count: jest.fn() },
   };
 
   const mockConfigService = { get: jest.fn() };
@@ -207,6 +208,50 @@ describe('ProductsService', () => {
         service.create({ name: 'Widget', price: 9.99, categoryId: 3 }),
       ).rejects.toBe(original);
       expect(mockDatabaseService.productCategory.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleting a product reviews still point at', () => {
+    it('refuses, naming how many reviews are in the way', async () => {
+      mockDatabaseService.review.count.mockResolvedValue(2);
+
+      await expect(service.remove('product-1')).rejects.toThrow(
+        new ConflictException('Product with ID product-1 still has 2 reviews'),
+      );
+    });
+
+    it('never reaches the database with the delete', async () => {
+      mockDatabaseService.review.count.mockResolvedValue(2);
+
+      await expect(service.remove('product-1')).rejects.toBeInstanceOf(ConflictException);
+      expect(mockDatabaseService.product.delete).not.toHaveBeenCalled();
+    });
+
+    // A refused delete changed nothing, so forgetting the cached product would
+    // throw away a still-correct entry.
+    it('leaves the cached product alone', async () => {
+      mockDatabaseService.review.count.mockResolvedValue(2);
+
+      await expect(service.remove('product-1')).rejects.toBeInstanceOf(ConflictException);
+      expect(mockProductCache.forget).not.toHaveBeenCalled();
+    });
+
+    it('counts only the reviews of the product being deleted', async () => {
+      mockDatabaseService.review.count.mockResolvedValue(0);
+
+      await service.remove('product-1');
+
+      expect(mockDatabaseService.review.count).toHaveBeenCalledWith({
+        where: { productId: 'product-1' },
+      });
+    });
+
+    it('deletes a product no review points at, and forgets it', async () => {
+      mockDatabaseService.review.count.mockResolvedValue(0);
+      mockDatabaseService.product.delete.mockResolvedValue({ id: 'product-1' });
+
+      await expect(service.remove('product-1')).resolves.toEqual({ id: 'product-1' });
+      expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
     });
   });
 });

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { DatabaseService } from '../../database/database.service';
+import { refuseIfReferenced } from '../../database/referenced-rows';
 
 @Injectable()
 export class ProductCategoryService {
@@ -36,7 +37,12 @@ export class ProductCategoryService {
     });
   }
 
-  remove(id: number) {
+  async remove(id: number) {
+    await refuseIfReferenced(
+      `Product category with ID ${id}`,
+      { one: 'product', many: 'products' },
+      () => this.databaseService.product.count({ where: { categoryId: id } }),
+    );
     return this.databaseService.productCategory.delete({ where: { id } });
   }
 }

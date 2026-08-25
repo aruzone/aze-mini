@@ -45,7 +45,7 @@ nx e2e aze-api-e2e                     # Backend E2E (Jest)
 
 ### CI
 
-`.github/workflows/ci.yml` runs on every pull request: one job runs `nx affected -t lint test build` against the base branch, a second applies the migrations to a Postgres service and runs the API e2e suite against it and a Redis service. Redis is not optional there — the cache specs assert hits, which a fail-open cache cannot produce without one. Nx starts the API itself there — the `e2e` target declares `dependsOn: ["aze-api:build", "aze-api:serve"]`.
+`.github/workflows/ci.yml` runs on every pull request: one job runs `nx affected -t lint test build` against the base branch, a second applies the migrations to a Postgres service and runs the API e2e suite against it and a Redis service. Redis is not optional there — the cache specs assert hits, which a fail-open cache cannot produce without one. Nx starts the API itself there — the `e2e` target declares `dependsOn: ["aze-api:build", "aze-api:serve"]`. The suite runs one spec file at a time (`maxWorkers: 1`): every spec drives that one API over one database and one Redis, and a product written by a parallel worker bumps the cached list's generation, which is a MISS the file asserting a HIT never asked for.
 
 It reads no repository secrets, so it runs unchanged in a fork. The `JWT_SECRET` and `API_KEY` it sets are throwaway values for a throwaway database, present because the API refuses to start without them.
 
@@ -88,7 +88,7 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
   - `review/` — Product reviews (one-to-many with Product)
   - `tag/` — Tags (many-to-many with Product)
 - `src/cache/` — Redis caching (ADR-0005). `CacheService` is the one place the Starter talks to the cache and every method fails open — a Redis that is unreachable costs a request its speed and nothing else. `redis-store.ts` configures the store to fail fast rather than queue. `cache-status.ts` names the `X-Cache: HIT|MISS` header the cached routes answer with. The module is `@Global()`
-- `src/database/` — `DatabaseService` extends `PrismaClient`; injected into all services. `prisma-errors.ts` names the Prisma error codes the API answers for (`P2025`, `P2002`) and is the one place they are spelled
+- `src/database/` — `DatabaseService` extends `PrismaClient`; injected into all services. `prisma-errors.ts` names the Prisma error codes the API answers for (`P2025`, `P2002`) and is the one place they are spelled. `referenced-rows.ts` is what a delete calls before deleting: every relation is `RESTRICT`, and the database's refusal carries no Prisma code the filter could name, so the service counts the rows still pointing at the one being deleted and answers 409 naming them
 - `src/config/` — App config, guards, pipes, filters:
   - `auth.guard.ts` — JWT bearer token guard, registered globally via `APP_GUARD` (see ADR-0002); attaches `req.user`. Every route requires a token unless it opts out
   - `decorators/public.decorator.ts` — `@Public()` opts a route out of the global guard. Only the root/health route, login, and registration carry it

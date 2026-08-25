@@ -15,6 +15,9 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api/prisma/seed.spec.ts` | Covers that seed |
 | `apps/aze-api-e2e/src/aze-api/validation.spec.ts` | Exercises validation through catalogue routes |
 | `apps/aze-api-e2e/src/aze-api/cache.spec.ts` | Proves the catalogue read path is cached and invalidated |
+| `apps/aze-api-e2e/src/aze-api/missing-records.spec.ts` | Drives the missing-relation 404s through catalogue routes |
+| `apps/aze-api-e2e/src/aze-api/referenced-rows.spec.ts` | Drives the RESTRICT 409s through catalogue routes |
+| `apps/aze-api-e2e/src/support/catalogue.ts` | Creates the catalogue rows those specs set up with |
 | `apps/aze-client/src/components/MyComponent.tsx` | Fetches and lists the catalogue from the API |
 | `apps/aze-client/src/app/api/hello/` | The example Next.js route handler |
 

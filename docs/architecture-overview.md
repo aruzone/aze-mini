@@ -50,9 +50,14 @@ Both are plain types depending on nothing, so either application can declare its
 | Layer | Files | Responsibility |
 |---|---|---|
 | App shell | `src/app/layout.tsx` | Root HTML layout with global CSS |
-| Home page | `src/app/page.tsx` | Main page; renders `MyComponent` |
+| Home page | `src/app/page.tsx` | Authenticated: reads `GET /users/me` server-side |
+| Login | `src/app/login/page.tsx` | Sign-in form, posting to a server action |
+| Catalogue | `src/app/catalogue/page.tsx` | Demo: lists products from the API |
+| Actions | `src/app/actions.ts` | `login` / `logout` server actions; set and clear the session cookie |
+| Session | `src/lib/session.ts` | The token in an httpOnly cookie |
+| API client | `src/lib/api.ts` | The one place the client calls the API |
+| Middleware | `src/middleware.ts` | Redirects to `/login` without a session |
 | API route | `src/app/api/hello/route.ts` | Next.js API route returning a static string |
-| Component | `src/components/MyComponent.tsx` | Fetches and renders product list from backend |
 
 ---
 

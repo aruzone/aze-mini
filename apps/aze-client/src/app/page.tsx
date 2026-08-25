@@ -1,46 +1,40 @@
-import Image from "next/image";
-import MyComponent from "../components/MyComponent";
+import { UserProfile, Wire } from '@aze-mini/platform-contracts';
+import Image from 'next/image';
+import Link from 'next/link';
+import { logout } from './actions';
+import { apiFetch } from '../lib/api';
+import { currentToken } from '../lib/session';
 
-export default function Index() {
-  /*
-   * Replace the elements below with your own.
-   *
-   * Note: The corresponding styles are in the ./index.tailwind file.
-   */
+// Rendered per request: it reads a cookie, so there is nothing to prerender.
+export const dynamic = 'force-dynamic';
+
+export default async function Index() {
+  // The middleware has already turned away anyone without a cookie, so a token
+  // is present here — but the API is what decides whether it is any good.
+  const user = await apiFetch<Wire<UserProfile>>('/users/me', {
+    token: await currentToken(),
+  });
+
   return (
-    <div>
-      <div className="wrapper">
-        <div className="container">
-          <div id="welcome" className="mx-auto">
-            <Image
-              src="/assets/aze-logo.png"
-              alt="Welcome"
-              width={200}
-              height={100}
-            />
-          </div>
-          <div id="products">
-            <MyComponent />
-          </div>
+    <main className="mx-auto max-w-2xl p-8">
+      <Image src="/assets/aze-logo.png" alt="Aze" width={160} height={80} />
 
-          <p id="love">
-            Carefully crafted the <strong>Aze</strong> way
-            <svg
-              fill="currentColor"
-              stroke="none"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              />
-            </svg>
-          </p>
-        </div>
-      </div>
-    </div>
+      <h1 className="mt-6 text-2xl font-semibold">
+        Signed in as {user.name ?? user.email}
+      </h1>
+      <p className="mt-1 text-sm text-gray-600">{user.email}</p>
+
+      <p className="mt-6">
+        <Link href="/catalogue" className="underline">
+          Browse the Demo catalogue
+        </Link>
+      </p>
+
+      <form action={logout} className="mt-8">
+        <button type="submit" className="rounded border px-3 py-1 text-sm">
+          Sign out
+        </button>
+      </form>
+    </main>
   );
 }

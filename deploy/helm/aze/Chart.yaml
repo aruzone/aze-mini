@@ -1,0 +1,10 @@
+apiVersion: v2
+name: aze
+description: >-
+  Barebones chart for the Aze Starter: the API and the client, and the job that
+  migrates the database ahead of them. Demo — read it, then make it yours.
+type: application
+# The chart's own version, bumped when the templates change.
+version: 0.1.0
+# What it deploys by default when no image tag is given.
+appVersion: "0.1.0"

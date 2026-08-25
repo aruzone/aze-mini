@@ -53,7 +53,7 @@ nx e2e aze-api-e2e                     # Backend E2E (Jest)
 
 It reads no repository secrets, so it runs unchanged in a fork. The `JWT_SECRET` and `API_KEY` it sets are throwaway values for a throwaway database, present because the API refuses to start without them.
 
-Node is pinned in `.nvmrc` (24), which `package.json` engines and the workflow both follow. Change one and change all three; the images added by #13 must match too.
+Node is pinned in `.nvmrc` (24), which `package.json` engines, the workflow and both Dockerfiles follow. Change one and change all four.
 
 `nx affected` only sees a root-level change if `sharedGlobals` in `nx.json` names the file — that is why a lockfile or workflow edit runs the full set.
 
@@ -133,13 +133,25 @@ A DTO's `implements` checks its fields against the contract; it cannot check tha
 
 ### Frontend (`apps/aze-client`)
 
-Next.js 15 app (React 19) with Tailwind CSS, running on port 3000.
+Next.js app (React 19) with Tailwind CSS, running on port 3000. It talks to the API from the **server**, never from the browser:
 
-- `src/app/` — Next.js App Router pages
-- `src/app/api/` — Next.js API routes (currently has a `hello` route)
-- `src/components/` — Shared React components
+- `src/lib/api.ts` — the one place the client calls the API. `apiUrl()` reads `AZE_API_URL` at request time rather than at build time, deliberately: a `NEXT_PUBLIC_` variable is compiled into the bundle, which would mean one image per environment. Every refusal comes back as `ApiError`, with the `ApiErrorResponse` envelope's `message` flattened to one string whether the API sent one or a field list
+- `src/lib/session.ts` — the token in an `httpOnly`, `sameSite=lax` cookie named `aze_session`, expiring with the token itself (1 day). Browser script cannot read it, which is why every call is made server-side and why no CORS header is involved in the client's own path
+- `src/middleware.ts` — redirects to `/login` when the cookie is absent, so a page added later is protected by existing. It checks only for presence; the API is what verifies the token
+- `src/app/actions.ts` — `login` and `logout` as server actions. Credentials never reach browser JavaScript and the token never leaves the server
+- `src/app/page.tsx` — the authenticated home page, reading `GET /users/me` (Platform)
+- `src/app/catalogue/` — lists the catalogue (Demo)
+- `src/app/login/` — the sign-in form (Platform)
 
-CORS is configured on the backend to allow `http://localhost:3000`.
+CORS on the API still allows `http://localhost:3000` for anything that *does* call it from a browser — the docs page, another front end. It is hardcoded; #7 makes it env-driven.
+
+### Containers and deployment
+
+- `apps/aze-api/Dockerfile` — multi-stage. `prisma generate` runs inside the image because the query engine's path is baked into the webpack bundle at build time, so generating on the host would ship the host's platform. The `migrator` stage keeps the build's full dependency tree, because the Prisma CLI is a devDependency the runtime image has no reason to carry
+- `apps/aze-client/Dockerfile` — multi-stage over Next's `output: 'standalone'`, so the runtime stage installs nothing
+- `docker-compose.yml` — Postgres, Redis, both apps, and a `migrate` service that applies migrations and exits. The API waits on it completing, so a fresh volume is migrated before anything reads from it
+- `deploy/` — a barebones Helm chart and one Argo CD Application, both Demo. `deploy/README.md` has the table of what the chart deliberately leaves to the Adopter
+- Node is pinned in `.nvmrc`, `package.json` engines, the CI workflow **and both Dockerfiles** — change one and change all four
 
 ### Nx Workspace
 

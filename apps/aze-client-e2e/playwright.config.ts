@@ -22,47 +22,38 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npx nx run aze-client:start',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  /*
+   * Both halves of the stack. These specs sign a real User in against the real
+   * API, so starting only the client would test a login form against nothing.
+   * Postgres and Redis are still the clone's own — `docker compose up -d` and a
+   * seeded database are what these read from.
+   */
+  webServer: [
+    {
+      command: 'npx nx run aze-api:serve',
+      url: 'http://localhost:3030/api',
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+      timeout: 120_000,
+    },
+    {
+      command: 'npx nx run aze-client:start',
+      url: 'http://localhost:3000/login',
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+      timeout: 120_000,
+    },
+  ],
+  /*
+   * The Google Chrome already installed on the machine, rather than Playwright's
+   * own Chromium build — nothing here has to be downloaded before `nx e2e`
+   * works. Add firefox or webkit projects if you want them; those do need
+   * `npx playwright install`.
+   */
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // Uncomment for mobile browsers support
-    /* {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    }, */
-
-    // Uncomment for branded browsers
-    /* {
-      name: 'Microsoft Edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    },
-    {
-      name: 'Google Chrome',
+      name: 'chrome',
       use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    } */
+    },
   ],
 });

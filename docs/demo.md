@@ -4,7 +4,7 @@ The Starter ships a Demo: a small product catalogue, a seeded User, and one mach
 
 This page is the inventory. Deleting everything listed here, and making the edits below, should leave a Starter that still builds, still passes `nx run-many -t test lint build`, and still registers and authenticates a User.
 
-> A fuller removal guide — the order to work in, and what to check afterwards — is #16. This list is what that guide will work from.
+The order to work in and how to check the result are at the bottom, under **Doing it**.
 
 ## Delete
 
@@ -19,7 +19,8 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api-e2e/src/aze-api/missing-records.spec.ts` | Drives the missing-relation 404s through catalogue routes |
 | `apps/aze-api-e2e/src/aze-api/referenced-rows.spec.ts` | Drives the RESTRICT 409s through catalogue routes |
 | `apps/aze-api-e2e/src/support/catalogue.ts` | Creates the catalogue rows those specs set up with |
-| `apps/aze-client/src/components/MyComponent.tsx` | Fetches and lists the catalogue from the API, declared against `@aze-mini/demo-contracts` |
+| `apps/aze-client/src/app/catalogue/` | The authenticated page that lists the catalogue |
+| `deploy/` | The Helm chart and the Argo CD Application — barebones, and Demo (ADR-0006, `deploy/README.md`). Keep them if you want the shape; they are yours to rewrite either way |
 | `apps/aze-client/src/app/api/hello/` | The example Next.js route handler |
 
 ## Edit rather than delete
@@ -30,11 +31,11 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api/src/app/app.module.ts` | Drop the `ProductsModule` import — the other three modules nest inside it |
 | `apps/aze-api/prisma.config.ts` | Drop the `migrations.seed` entry along with the seed file |
 | `apps/aze-api/src/config/pipes/validation.pipe.spec.ts` | It validates against `CreateProductDto`; point it at a DTO you keep — `RegisterDto` does the job — and rewrite the bodies it sends to match that DTO's fields, or the suite will not compile and then will not pass |
-| `apps/aze-client/src/app/page.tsx` | Drop the `MyComponent` import and the `<div id="products">` that renders it |
+| `apps/aze-client/src/app/page.tsx` | Drop the link to `/catalogue` |
 | `apps/aze-api/src/config/decorators/machine-to-machine.decorator.ts` | Keep the decorator if you want key auth; its only use is `POST /products`, which goes with the catalogue (ADR-0002) |
 | `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks |
-| `apps/aze-client-e2e/` | Its assertions follow whatever you leave on the page |
+| `apps/aze-client-e2e/src/session.spec.ts` | Its last two cases sign in and then read the catalogue; the rest are Platform and stay. The seeded credentials at the top go with the seed |
 
 ### The contracts, which are two packages
 
@@ -61,3 +62,39 @@ These do not break anything if left, but they will describe models and routes th
 `prisma/seed.ts` creates `demo@example.com` with a known password, printed when the seed runs. It is a real User with a real hash — written through the same function registration uses — so it keeps working after the catalogue is gone.
 
 Delete that User before deploying anywhere real. An Adopter keeps the security posture they cloned (ADR-0004), and that includes this one.
+
+## Doing it
+
+The order matters only in that the database goes last — a migration that drops
+tables while code still selects from them fails in the least helpful way.
+
+1. **Delete the paths** in the first table.
+2. **Make the edits** in the second. `nx run-many -t lint build --all` will name
+   anything you missed; every one of them is an import that no longer resolves.
+3. **Drop the models.** Remove `Product`, `ProductCategory`, `Review` and `Tag`
+   from `prisma/schema.prisma`, keep `User`, then `npx prisma migrate dev --name
+   remove-demo`. Check the generated SQL before you apply it anywhere that
+   matters — it drops tables.
+4. **Delete the Demo User** if the seed ever ran against something real.
+
+### Checking
+
+```bash
+nx run-many -t lint test build --all
+nx e2e aze-api-e2e        # needs Postgres and Redis
+nx e2e aze-client-e2e     # needs both apps running
+```
+
+Then, by hand: register a new User, sign in as them, and land on the home page.
+That path is Platform from end to end and is what the Starter is actually for.
+
+### What should be left
+
+The whole Platform, still working: registration and login, the request
+perimeter and its guards, the global validation pipe, the error envelope, the
+session cookie and the redirect that enforces it, `CacheService` and Redis, the
+database layer, the configuration check, the OpenAPI document, and CI.
+
+`libs/platform-contracts` stays. `libs/demo-contracts` goes with the catalogue —
+and the `tier:` tags are what guarantee the first never came to depend on the
+second (ADR-0006).

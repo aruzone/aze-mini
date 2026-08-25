@@ -1,0 +1,56 @@
+# One Application, pointing at the chart in this repository.
+#
+# Demo — see docs/demo.md. Edit repoURL, targetRevision and the destination,
+# then `kubectl apply -f` this into the namespace Argo CD runs in.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aze
+  namespace: argocd
+  finalizers:
+    # Deleting the Application takes what it created with it. Drop this line
+    # if you would rather a deletion left the workloads running.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Yours, not this one.
+    repoURL: https://github.com/your-org/your-repo.git
+    # A tag or a commit, not a branch: a branch means the cluster's contents
+    # change when someone merges, which is not a deployment anyone decided to
+    # make. See ADR-0004 — an Adopter owns what they are running.
+    targetRevision: v0.1.0
+    path: deploy/helm/aze
+
+    helm:
+      # Secrets do not belong here. This file is in Git; a value written below
+      # is in Git too, in the clear, for as long as the history lives. Create
+      # the Secret with sealed-secrets, external-secrets or your cloud's own
+      # store, and name it here.
+      parameters:
+        - name: secrets.existingSecret
+          value: aze-secrets
+        - name: api.image.repository
+          value: ghcr.io/your-org/aze-api
+        - name: client.image.repository
+          value: ghcr.io/your-org/aze-client
+        - name: migrate.image.repository
+          value: ghcr.io/your-org/aze-migrate
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aze
+
+  syncPolicy:
+    automated:
+      # Argo removes what the chart stopped rendering, and puts back what was
+      # changed by hand in the cluster.
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The migration Job is a Helm pre-upgrade hook. Argo runs hooks as its
+      # own sync phases, and without this the completed Job from the previous
+      # sync blocks the next one.
+      - ApplyOutOfSyncOnly=true

@@ -68,6 +68,10 @@ npm install
 # --wait blocks until both are accepting connections
 docker compose up -d --wait
 
+# Running a second clone at the same time? Give it its own project name and
+# host ports, then point that clone's apps/aze-api/.env at the ports it chose:
+#   POSTGRES_PORT=5433 REDIS_PORT=6380 docker compose -p aze-two up -d --wait
+
 # CREATE BACKEND ENV FILE
 cd apps/aze-api
 cp .env.example .env

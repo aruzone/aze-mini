@@ -16,6 +16,9 @@ npm install
 # fallback, see docs/adr/0001; the cache fails open without Redis, see 0005)
 # --wait blocks until the healthchecks pass; without it the migrate below races startup
 docker compose up -d --wait
+# A second clone runs alongside this one under its own project name and ports —
+# POSTGRES_PORT=5433 REDIS_PORT=6380 docker compose -p aze-two up -d --wait —
+# with that clone's .env carrying the ports it chose
 
 # Backend: copy env and init database
 cd apps/aze-api

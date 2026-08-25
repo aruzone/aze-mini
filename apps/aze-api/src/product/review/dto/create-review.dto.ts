@@ -1,7 +1,8 @@
+import { CreateReviewRequest } from '@aze-mini/demo-contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class CreateReviewDto {
+export class CreateReviewDto implements CreateReviewRequest {
   @ApiProperty({ example: 5 })
   @IsInt()
   rating: number;

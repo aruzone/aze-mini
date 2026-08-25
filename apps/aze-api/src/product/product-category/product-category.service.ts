@@ -1,3 +1,4 @@
+import { ProductCategory } from '@aze-mini/demo-contracts';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
@@ -8,17 +9,17 @@ import { refuseIfReferenced } from '../../database/referenced-rows';
 export class ProductCategoryService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  create(createProductCategoryDto: CreateProductCategoryDto) {
+  create(createProductCategoryDto: CreateProductCategoryDto): Promise<ProductCategory> {
     return this.databaseService.productCategory.create({
       data: createProductCategoryDto,
     });
   }
 
-  findAll() {
+  findAll(): Promise<ProductCategory[]> {
     return this.databaseService.productCategory.findMany();
   }
 
-  async findOne(id: number) {
+  async findOne(id: number): Promise<ProductCategory> {
     const productCategory =
       await this.databaseService.productCategory.findUnique({ where: { id } });
     if (!productCategory) {
@@ -30,14 +31,14 @@ export class ProductCategoryService {
   update(
     id: number,
     updateProductCategoryDto: UpdateProductCategoryDto
-  ) {
+  ): Promise<ProductCategory> {
     return this.databaseService.productCategory.update({
       where: { id },
       data: updateProductCategoryDto,
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number): Promise<ProductCategory> {
     await refuseIfReferenced(
       `Product category with ID ${id}`,
       { one: 'product', many: 'products' },

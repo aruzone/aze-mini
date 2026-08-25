@@ -1,0 +1,17 @@
+{
+  "name": "demo-contracts",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/demo-contracts/src",
+  "projectType": "library",
+  "tags": [
+    "tier:demo"
+  ],
+  "// targets": "to see all targets run: nx show project demo-contracts --web",
+  "targets": {
+    "test": {
+      "options": {
+        "passWithNoTests": true
+      }
+    }
+  }
+}

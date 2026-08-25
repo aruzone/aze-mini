@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, DefaultValuePipe, ParseIntPipe, Res } from '@nestjs/common';
+import { ProductSort } from '@aze-mini/demo-contracts';
 import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ProductsService } from './products.service';
@@ -34,7 +35,7 @@ export class ProductsController {
   @ApiOkResponse({ headers: CACHE_STATUS_RESPONSE_HEADER })
   @Get()
   async findAll(
-    @Query('sort') sort: 'asc' | 'desc' = 'asc',
+    @Query('sort') sort: ProductSort = 'asc',
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe, IsPositivePipe) limit: number,
     @Res({ passthrough: true }) response: Response,
   ) {

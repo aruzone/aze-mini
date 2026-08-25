@@ -1,7 +1,8 @@
+import { RegisterRequest } from '@aze-mini/platform-contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class RegisterDto {
+export class RegisterDto implements RegisterRequest {
   @ApiProperty({ example: 'ada@example.com' })
   @IsEmail()
   email: string;

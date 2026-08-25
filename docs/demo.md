@@ -10,7 +10,8 @@ This page is the inventory. Deleting everything listed here, and making the edit
 
 | Path | What it is |
 | --- | --- |
-| `apps/aze-api/src/product/` | The whole catalogue: products, categories, reviews, tags — controllers, services and DTOs |
+| `libs/demo-contracts/` | The catalogue's shapes on the wire, and the `@aze-mini/demo-contracts` entry in `tsconfig.base.json` `paths` that names it |
+| `apps/aze-api/src/product/` | The whole catalogue: products, categories, reviews, tags — controllers, services and DTOs. `demo-contracts.spec.ts` in it is what checks nothing outside points at the package above |
 | `apps/aze-api/prisma/seed.ts` | Seeds the Demo User and catalogue |
 | `apps/aze-api/prisma/seed.spec.ts` | Covers that seed |
 | `apps/aze-api-e2e/src/aze-api/validation.spec.ts` | Exercises validation through catalogue routes |
@@ -18,7 +19,7 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api-e2e/src/aze-api/missing-records.spec.ts` | Drives the missing-relation 404s through catalogue routes |
 | `apps/aze-api-e2e/src/aze-api/referenced-rows.spec.ts` | Drives the RESTRICT 409s through catalogue routes |
 | `apps/aze-api-e2e/src/support/catalogue.ts` | Creates the catalogue rows those specs set up with |
-| `apps/aze-client/src/components/MyComponent.tsx` | Fetches and lists the catalogue from the API |
+| `apps/aze-client/src/components/MyComponent.tsx` | Fetches and lists the catalogue from the API, declared against `@aze-mini/demo-contracts` |
 | `apps/aze-client/src/app/api/hello/` | The example Next.js route handler |
 
 ## Edit rather than delete
@@ -28,12 +29,16 @@ This page is the inventory. Deleting everything listed here, and making the edit
 | `apps/aze-api/prisma/schema.prisma` | Drop the `Product`, `ProductCategory`, `Review` and `Tag` models, keep `User`, then run a migration |
 | `apps/aze-api/src/app/app.module.ts` | Drop the `ProductsModule` import — the other three modules nest inside it |
 | `apps/aze-api/prisma.config.ts` | Drop the `migrations.seed` entry along with the seed file |
-| `apps/aze-api/src/config/pipes/validation.pipe.spec.ts` | It validates against `CreateProductDto`; point it at a DTO you keep, or the suite will not compile |
+| `apps/aze-api/src/config/pipes/validation.pipe.spec.ts` | It validates against `CreateProductDto`; point it at a DTO you keep — `RegisterDto` does the job — and rewrite the bodies it sends to match that DTO's fields, or the suite will not compile and then will not pass |
 | `apps/aze-client/src/app/page.tsx` | Drop the `MyComponent` import and the `<div id="products">` that renders it |
 | `apps/aze-api/src/config/decorators/machine-to-machine.decorator.ts` | Keep the decorator if you want key auth; its only use is `POST /products`, which goes with the catalogue (ADR-0002) |
 | `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks |
 | `apps/aze-client-e2e/` | Its assertions follow whatever you leave on the page |
+
+### The contracts, which are two packages
+
+`libs/platform-contracts/` is Platform and stays: the auth requests, the token they answer with, the current User, and the envelope every refusal arrives in. `libs/demo-contracts/` is Demo and goes. The `tier:` tags on those two projects are what stop the first coming to depend on the second, and `demo-contracts.spec.ts` is what stops the API's Platform code doing the same — see ADR-0006 — so the deletion above is a deletion rather than an edit.
 
 ### The cache, which is both
 

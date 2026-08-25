@@ -1,7 +1,8 @@
+import { CreateProductRequest } from '@aze-mini/demo-contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
 
-export class CreateProductDto {
+export class CreateProductDto implements CreateProductRequest {
   @ApiProperty({ example: 'Widget' })
   @IsString()
   @IsNotEmpty()

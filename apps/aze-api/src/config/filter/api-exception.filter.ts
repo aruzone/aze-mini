@@ -1,3 +1,4 @@
+import { ApiErrorResponse } from '@aze-mini/platform-contracts';
 import {
   ArgumentsHost,
   Catch,
@@ -15,7 +16,33 @@ import {
   UNIQUE_CONSTRAINT_FAILED,
 } from '../../database/prisma-errors';
 
-type Answer = { httpStatus: number; errorMessage: unknown };
+type ErrorMessage = ApiErrorResponse['message'];
+
+type Answer = { httpStatus: number; errorMessage: ErrorMessage };
+
+// Nest puts one entry per failing field under `message` as an array and says
+// everything else in a string, which is what ApiErrorResponse promises a caller.
+// A body that put anything else there has nothing readable to offer, so the
+// exception's own message stands in rather than that reaching the wire.
+function readableMessage(body: unknown, fallback: string): ErrorMessage {
+  if (typeof body === 'string') {
+    return body;
+  }
+
+  if (typeof body !== 'object' || body === null) {
+    return fallback;
+  }
+
+  const message = (body as { message?: unknown }).message;
+  if (typeof message === 'string') {
+    return message;
+  }
+  if (Array.isArray(message) && message.every((entry) => typeof entry === 'string')) {
+    return message;
+  }
+
+  return fallback;
+}
 
 // Prisma reports both a missing row and a failed nested connect as P2025, and
 // names the model the write was aimed at rather than the relation id that
@@ -57,7 +84,7 @@ export class ApiExceptionFilter<T> implements ExceptionFilter {
     const request = ctx.getRequest();
 
     let httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errorMessage: unknown = 'Internal server error';
+    let errorMessage: ErrorMessage = 'Internal server error';
 
     if (exception instanceof PrismaClientValidationError) {
       httpStatus = 400;
@@ -74,11 +101,7 @@ export class ApiExceptionFilter<T> implements ExceptionFilter {
       // `message`: the validation pipe reports one entry per failing field
       // there, and that detail is the whole value of a 400.
       httpStatus = exception.getStatus();
-      const body = exception.getResponse();
-      errorMessage =
-        typeof body === 'string'
-          ? body
-          : ((body as { message?: unknown }).message ?? exception.message);
+      errorMessage = readableMessage(exception.getResponse(), exception.message);
     }
 
     // A 500 tells the caller nothing, by design. Whoever runs the API needs the
@@ -90,11 +113,13 @@ export class ApiExceptionFilter<T> implements ExceptionFilter {
       );
     }
 
-    response.status(httpStatus).json({
+    const body: ApiErrorResponse = {
       statusCode: httpStatus,
       timestamp: new Date().toISOString(),
       path: request.url,
       message: errorMessage,
-    });
+    };
+
+    response.status(httpStatus).json(body);
   }
 }

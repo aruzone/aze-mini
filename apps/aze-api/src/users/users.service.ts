@@ -1,3 +1,4 @@
+import { UserProfile } from '@aze-mini/platform-contracts';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 
@@ -24,7 +25,7 @@ export class UsersService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<UserProfile | null> {
     return this.databaseService.user.findUnique({
       where: { id },
       omit: withoutPassword,

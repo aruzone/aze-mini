@@ -6,11 +6,15 @@ Aze is a full-stack monorepo built with **Nx**. It contains two applications —
 
 ```
 Workspace (Nx)
-├── apps/aze-api         NestJS REST API  (port 3030, prefix /api)
-├── apps/aze-client      Next.js frontend (port 3000)
-├── apps/aze-api-e2e     Backend E2E tests (Jest)
-└── apps/aze-client-e2e  Frontend E2E tests (Playwright)
+├── apps/aze-api             NestJS REST API  (port 3030, prefix /api)
+├── apps/aze-client          Next.js frontend (port 3000)
+├── apps/aze-api-e2e         Backend E2E tests (Jest)
+├── apps/aze-client-e2e      Frontend E2E tests (Playwright)
+├── libs/platform-contracts  Wire shapes an Adopter keeps   (tier:platform)
+└── libs/demo-contracts      Wire shapes an Adopter deletes (tier:demo)
 ```
+
+The two libraries hold the shapes that cross between the applications, split so that removing the Demo is a delete rather than an edit (ADR-0006). A `tier:platform` project may not depend on a `tier:demo` one, which `@nx/enforce-module-boundaries` refuses at lint time.
 
 ---
 
@@ -31,6 +35,15 @@ Workspace (Nx)
 | Cache | `src/cache/` | `CacheService` over Redis, failing open on every call (ADR-0005) |
 | Database | `src/database/` | `DatabaseService` extends `PrismaClient`, connects on module init |
 | Config | `src/config/` | App configuration, guards, pipes, exception filters |
+
+### Shared contracts (`libs/`)
+
+| Package | Import path | Holds |
+|---|---|---|
+| `platform-contracts` | `@aze-mini/platform-contracts` | `RegisterRequest`, `LoginRequest`, `AuthResponse`, `UserProfile`, `ApiErrorResponse`, and `Wire<T>` for reading any of them as JSON delivers it |
+| `demo-contracts` | `@aze-mini/demo-contracts` | `Product`, `ProductCategory`, `Review`, `Tag` and the request bodies that write them |
+
+Both are plain types depending on nothing, so either application can declare itself against them. The API's DTO classes keep their validation decorators and add `implements` against the contract.
 
 ### Frontend (`apps/aze-client`)
 

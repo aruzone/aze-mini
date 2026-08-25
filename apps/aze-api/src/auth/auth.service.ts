@@ -1,3 +1,4 @@
+import { AuthResponse } from '@aze-mini/platform-contracts';
 import {
   BadRequestException,
   ConflictException,
@@ -33,15 +34,10 @@ function requirePassword(password: unknown): string {
   return password;
 }
 
+/** Not a response: what login signs a token from, before there is a token. */
 type SignInData = {
   userId: string;
   email: string;
-};
-
-type AuthResult = {
-  userId: string;
-  email: string;
-  accessToken: string;
 };
 
 @Injectable()
@@ -51,7 +47,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerInput: RegisterDto): Promise<AuthResult> {
+  async register(registerInput: RegisterDto): Promise<AuthResponse> {
     const email = normalizeEmail(registerInput.email);
     const password = requirePassword(registerInput.password);
 
@@ -86,7 +82,7 @@ export class AuthService {
     }
   }
 
-  async authenticate(authInput: LoginDto): Promise<AuthResult | null> {
+  async authenticate(authInput: LoginDto): Promise<AuthResponse | null> {
     const user = await this.validateUser(authInput);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -110,7 +106,7 @@ export class AuthService {
     return null;
   }
 
-  async login(user: SignInData): Promise<AuthResult> {
+  async login(user: SignInData): Promise<AuthResponse> {
     const payload: TokenClaims = { email: user.email, sub: user.userId };
     return {
       accessToken: this.jwtService.sign(payload),

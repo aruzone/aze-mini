@@ -68,6 +68,11 @@ npm install
 # --wait blocks until both are accepting connections
 docker compose up -d --wait
 
+# Running a second clone at the same time? Give it its own project name and
+# host ports, then put those ports in DATABASE_URL and REDIS_URL in that
+# clone's apps/aze-api/.env:
+#   POSTGRES_PORT=5433 REDIS_PORT=6380 docker compose -p aze-two up -d --wait
+
 # CREATE BACKEND ENV FILE
 cd apps/aze-api
 cp .env.example .env
@@ -76,8 +81,8 @@ cp .env.example .env
 # and the API refuses to start while either is still unedited.
 
 # CREATE THE DATABASE SCHEMA
+# migrate dev regenerates the Prisma client itself — no separate generate step
 npx prisma migrate dev
-npx prisma generate
 
 # RUN BACKEND
 nx serve aze-api

@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: aze-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: aze
@@ -13,8 +12,16 @@ services:
     # Bound to the loopback interface deliberately: published as '5432:5432'
     # this would be reachable from the whole network with a password anyone
     # can read on GitHub.
+    #
+    # The host port is a variable so a second clone can publish elsewhere.
+    # Neither service pins a container_name: names are global to the Docker
+    # daemon and are held even by a stopped container, so a pinned one stops
+    # a second clone from starting until the first is removed. Compose derives
+    # a name per project instead, and 'docker compose -p <name>' separates two
+    # clones completely. A clone using another port has to say so in its
+    # apps/aze-api/.env — DATABASE_URL and REDIS_URL carry it too.
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     # Postgres 18+ expects a single mount at /var/lib/postgresql, not at
     # /var/lib/postgresql/data — it stores data in a versioned subdirectory.
     volumes:
@@ -27,12 +34,11 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: aze-redis
     restart: unless-stopped
     # Loopback for the same reason Postgres is, and with more force: Redis has
     # no password here at all.
     ports:
-      - '127.0.0.1:6379:6379'
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     # No volume, deliberately. Everything in here is a copy of a row in
     # Postgres, and the API answers correctly with an empty cache (ADR-0005),
     # so persisting it across restarts would only preserve staleness.

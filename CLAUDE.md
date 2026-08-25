@@ -16,14 +16,18 @@ npm install
 # fallback, see docs/adr/0001; the cache fails open without Redis, see 0005)
 # --wait blocks until the healthchecks pass; without it the migrate below races startup
 docker compose up -d --wait
+# A second clone runs alongside this one under its own project name and ports —
+# POSTGRES_PORT=5433 REDIS_PORT=6380 docker compose -p aze-two up -d --wait —
+# with DATABASE_URL and REDIS_URL in that clone's .env carrying the ports it chose
 
 # Backend: copy env and init database
 cd apps/aze-api
 cp .env.example .env
 # Replace API_KEY and JWT_SECRET in .env — the API refuses to start while
 # either still holds the placeholder it ships with
+# migrate dev regenerates the client itself; a bare generate is only for a
+# schema change made without a migration
 npx prisma migrate dev
-npx prisma generate
 
 # Seed the Demo User and catalogue. Prints the login to use; safe to re-run
 npx prisma db seed

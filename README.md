@@ -80,8 +80,8 @@ cp .env.example .env
 # and the API refuses to start while either is still unedited.
 
 # CREATE THE DATABASE SCHEMA
+# migrate dev regenerates the Prisma client itself — no separate generate step
 npx prisma migrate dev
-npx prisma generate
 
 # RUN BACKEND
 nx serve aze-api

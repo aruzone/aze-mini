@@ -25,8 +25,9 @@ cd apps/aze-api
 cp .env.example .env
 # Replace API_KEY and JWT_SECRET in .env — the API refuses to start while
 # either still holds the placeholder it ships with
+# migrate dev regenerates the client itself; a bare generate is only for a
+# schema change made without a migration
 npx prisma migrate dev
-npx prisma generate
 
 # Seed the Demo User and catalogue. Prints the login to use; safe to re-run
 npx prisma db seed

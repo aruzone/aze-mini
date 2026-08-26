@@ -15,7 +15,7 @@ Aze Starter is a full-stack monorepo using **Nx**, **Next.js** (frontend), **Nes
 - **Documentation names files, never `file:line`.** Line numbers drift silently and nothing reading them can tell; the check refuses them.
 - **`docs/interfaces.md` is held to the controllers.** Add or change a route and that table is part of the change.
 - **Use the vocabulary in `CONTEXT.md`** — Starter, Adopter, Platform, Demo, User — including the words it says to avoid.
-- **Read the ADR before changing what it decided.** `docs/adr/` holds six. If your change contradicts one, say so rather than quietly overriding it.
+- **Read the ADR before changing what it decided.** `docs/adr/` holds seven. If your change contradicts one, say so rather than quietly overriding it.
 - **Platform code may not import Demo code.** Lint enforces it between projects and `src/product/demo-contracts.spec.ts` enforces it inside the API.
 - **Comments explain why, not what.** The reasoning behind a non-obvious choice belongs next to it; a comment restating the code does not.
 
@@ -125,11 +125,15 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
   - `pipes/validation.pipe.ts` — The global `ValidationPipe` (active in `main.ts`). `whitelist` + `forbidNonWhitelisted` mean an undeclared property is refused by name, not dropped
   - `security.ts` — The `x-api-key` header name and the OpenAPI scheme names, so the guards and the documentation cannot advertise different credentials
   - `security-headers.ts` — The Helmet policy every response carries, applied in `main.ts` **before** `setupDocs`: Swagger registers its own Express route, and headers added after it would never reach the one page a browser renders. The docs path gets a looser CSP because Swagger UI is built from inline script and style; every other route keeps a strict one
-  - `docs.ts` — Builds and serves the OpenAPI document (active in `main.ts` when `API_DOCS` allows). Bearer auth is required document-wide, mirroring the global guard; the two opt-out decorators carry their own exception
+  - `docs.ts` — Builds and serves the OpenAPI document (active in `main.ts` when `API_DOCS` allows). Bearer auth is required document-wide, mirroring the global guard; the two opt-out decorators carry their own exception. `documentRefusals` is what puts the refusals on every operation, derived from what that operation already declares — an inherited bearer requirement is a 401, the API key a 403, a body or a query parameter a 400, an id in the path a 404 — so the perimeter is documented once rather than on every operation (ADR-0007)
+  - `decorators/api-refusal.decorator.ts` — `@ApiRefusal(status, description)`, for the refusals a route knows about and the document cannot infer: a name already taken, rows still pointing at what is being deleted. It references the same envelope, and a status a route documents itself is never overwritten by the derived default
+  - `filter/api-error.response.ts` — the envelope as the document describes it, declared once and `$ref`-ed from every refusal
   - `filter/api-exception.filter.ts` — Global exception filter (active in `main.ts`). It catches everything and answers in one envelope: `{ statusCode, timestamp, path, message }`. It takes `message` from the exception's own body without flattening it, which is what keeps the validation pipe's per-field array intact. Following Nest, `message` is a string for a single failure and an array of strings for a field list, so a client reading it must accept both. It also names two Prisma failures rather than letting them reach the 500 default: `P2025` (a row the write needed was not there) answers 404, `P2002` (a unique index) answers 409 naming the column that collided. Anything still answering 5xx is logged with its stack — the body deliberately carries no detail, so the log is the only place the cause survives
   - `pipes/is-positive.pipe.ts` — Validation pipe for positive number parameters
 
 **Request bodies** bind to explicit DTO classes under each feature's `dto/`, validated with `class-validator`, each declaring `implements` against the matching contract in `libs/` (below). No endpoint binds a generated Prisma input type — relations are flat ids on the wire (`categoryId`, `productId`) and the service turns them into Prisma's nested `connect`, so the generated types stop at the database layer. When a `connect` finds nothing, Prisma names the relation but never the id that missed, so the service looks up the ids the request supplied — only on the failing path — and answers 404 naming the one that is absent.
+
+**Response bodies** are documented from the same contracts, by a `*.response.ts` class beside each controller declaring `implements Wire<T>` against the contract it answers with — `Wire` because JSON delivers a `Date` as a string. Nothing is generated from the Prisma models: a schema derived from them would describe the rows rather than the responses (ADR-0007). The classes are documentation only; a controller still returns what its service returned.
 
 **Prisma schema** is at `apps/aze-api/prisma/schema.prisma`. The generated client outputs to `apps/aze-api/generated/prisma/` (not the default location). Import from `../../generated/prisma` within the api app. `apps/aze-api/prisma.config.ts` names the schema and the seed command, and loads `.env` itself — Prisma stops doing that once a config file exists.
 
@@ -153,12 +157,12 @@ The rest are optional:
 
 The shapes that cross the wire, as plain types depending on nothing — not Nest, not Prisma, not React — so both applications declare themselves against them rather than restating them. Split by tier so that removing the Demo stays a delete (ADR-0006):
 
-- `libs/platform-contracts` → `@aze-mini/platform-contracts`, tagged `tier:platform`. `RegisterRequest`, `LoginRequest`, `AuthResponse`, `UserProfile`, `ApiErrorResponse` — the envelope `ApiExceptionFilter` writes — and `Wire<T>`, which maps every `Date` in a contract to the string JSON delivers, so a client reads the same declaration the API returns
+- `libs/platform-contracts` → `@aze-mini/platform-contracts`, tagged `tier:platform`. `RegisterRequest`, `LoginRequest`, `AuthResponse`, `UserProfile`, `HealthResponse`, `ApiErrorResponse` — the envelope `ApiExceptionFilter` writes — and `Wire<T>`, which maps every `Date` in a contract to the string JSON delivers, so a client reads the same declaration the API returns
 - `libs/demo-contracts` → `@aze-mini/demo-contracts`, tagged `tier:demo`. `Product`, `ProductCategory`, `Review`, `Tag`, their create/update request bodies, and `ProductSort`
 
 `@nx/enforce-module-boundaries` in `eslint.config.mjs` refuses a `tier:platform` project any dependency on a `tier:demo` one. That works between projects; the API is one project holding both tiers, so `src/product/demo-contracts.spec.ts` reads the source to check the same containment there, and is deleted with the rest of the Demo. The client has neither guard — `docs/demo.md` names its Demo files instead.
 
-A DTO's `implements` checks its fields against the contract; it cannot check that the validation decorators agree with it.
+A DTO's `implements` checks its fields against the contract; it cannot check that the validation decorators agree with it, and a response class's cannot check that its `@ApiProperty` annotations agree either. `apps/aze-api-e2e/src/aze-api/docs.spec.ts` is what closes both gaps: it pins every documented property of every schema, and reads real responses against the schema published for them.
 
 ### Frontend (`apps/aze-client`)
 

@@ -21,11 +21,22 @@ the interactive page at `/api/docs`.
 Every refusal, whatever raised it, arrives in one envelope —
 `{ statusCode, timestamp, path, message }`, the `ApiErrorResponse` contract —
 where `message` is a string for a single failure and an array of strings for a
-field list. A caller has to accept both.
+field list. A caller has to accept both. The document says so once: the envelope
+is a single schema and every refusal on every operation is a reference to it.
 
-No route accepts a type generated from the Prisma schema. Request bodies are DTO
-classes under each feature's `dto/`, each declared `implements` against a
-contract in `libs/`, and relations cross the wire as flat ids.
+Which refusals an operation carries are derived from what it already declares,
+rather than written out on every route — an inherited bearer requirement is a
+401, the API key a 403, a body or a query parameter a 400, an id in the path a
+404. The
+refusals a route knows about and the perimeter cannot infer are written on the
+route (ADR-0007).
+
+No route accepts a type generated from the Prisma schema, and none is documented
+as answering with one. Request bodies are DTO classes under each feature's
+`dto/`; responses are `*.response.ts` classes beside each controller. Both are
+declared `implements` against a contract in `libs/`, and relations cross the
+wire as flat ids. The **Answers** column below names the contract; the schema in
+the document carries the same name.
 
 ---
 
@@ -35,7 +46,7 @@ These routes are what an Adopter keeps.
 
 | Route | Guard | Body | Answers |
 | --- | --- | --- | --- |
-| `GET /api` | None | — | `{ message: string }`. The health route, and what the container healthcheck and the chart's probes call |
+| `GET /api` | None | — | `HealthResponse` — `{ message }`. The health route, and what the container healthcheck and the chart's probes call |
 | `POST /api/auth/register` | None | `RegisterDto` — `email`, `password`, optional `name` | `AuthResponse` — `{ userId, email, accessToken }`. Creates the User with a bcryptjs hash. Registration is open ([docs/deployment.md](deployment.md) §8) |
 | `POST /api/auth/login` | None | `LoginDto` — `email`, `password` | `AuthResponse`. Answers 200, not 201. Failures are throttled per source and User; the source is `@Ip()`, which depends on `TRUST_PROXY` |
 | `GET /api/users/me` | JWT | — | `UserProfile` — the User the token identifies. There is no route to any other User, and no route here creates one |

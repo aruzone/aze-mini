@@ -101,6 +101,15 @@ Every Nest DTO under a feature's `dto/` declares `implements` against the reques
 contract below and adds the `class-validator` and OpenAPI decorators. A field
 added to a contract and not to its DTO is a compile error.
 
+Responses are declared the same way, pointed the other direction: a
+`*.response.ts` class beside each controller carries the OpenAPI decorators and
+declares `implements Wire<T>` against the contract the route answers with. It is
+read through `Wire` because a document describes what a caller receives, and JSON
+delivers a `Date` as a string. Nothing is generated from the Prisma models —
+a schema derived from them would describe the rows rather than the responses
+(ADR-0007). The classes are documentation: a controller still returns what its
+service returned, and nothing is serialized through them.
+
 ### Platform — `@aze-mini/platform-contracts`
 
 ```
@@ -110,6 +119,7 @@ RegisterRequest    POST /auth/register body     email, password, name?
 LoginRequest       POST /auth/login body        email, password
 AuthResponse       what both auth routes answer userId, email, accessToken
 UserProfile        GET /users/me                id, email, name, createdAt, updatedAt
+HealthResponse     GET /                        message
 ApiErrorResponse   every refusal, any status    statusCode, timestamp, path, message
 Wire<T>            T as JSON delivers it        every Date becomes a string
 ```

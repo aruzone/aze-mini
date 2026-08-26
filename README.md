@@ -19,7 +19,7 @@ and each is written down where you can find it and argue with it:
 - **One database.** Postgres, with no file-based fallback ([ADR-0001](docs/adr/0001-postgres-only.md)).
 - **Auth fails closed.** Every route needs a token unless it explicitly opts out ([ADR-0002](docs/adr/0002-fail-closed-auth-guard.md)).
 - **The cache fails open.** If Redis is down the API is slower, not broken ([ADR-0005](docs/adr/0005-redis-cache-fails-open.md)).
-- **One shape for every error**, so a client has one thing to read.
+- **One shape for every error**, so a client has one thing to read — and the document says so once, referenced from every refusal ([ADR-0007](docs/adr/0007-responses-documented-from-the-contracts.md)).
 - **The token never reaches browser JavaScript.** The client calls the API from its own server.
 - **Contracts are plain types**, shared by both apps, tagged by tier and enforced by lint ([ADR-0006](docs/adr/0006-contracts-as-types-split-by-tier.md)).
 
@@ -65,7 +65,7 @@ that are _not_ held to that bar say so out loud.
 | Caching with real invalidation | Redis behind one service. Keys, TTL and invalidation live in a single file, responses carry `X-Cache: HIT\|MISS`, and one deletion forgets every cached variant of a list at once                                           |
 | Safe deletes                   | A delete blocked by a relation answers 409 naming the rows still pointing at it, instead of a 500                                                                                                                           |
 | Startup configuration check    | The API names every missing or placeholder variable at once and refuses to start, before it connects to anything                                                                                                            |
-| API documentation              | An interactive OpenAPI page at `/api/docs`, generated from the same decorators that guard the routes, and switchable off per environment                                                                                    |
+| API documentation              | An interactive OpenAPI page at `/api/docs`, generated from the same decorators that guard the routes, with a schema on every request and every response, and switchable off per environment                                                                                    |
 | Session handling               | The token lives in an `httpOnly`, `sameSite=lax` cookie; middleware redirects a signed-out visitor, so a page added later is protected by existing                                                                          |
 | Shared contracts               | The shapes that cross the wire are declared once and used by both apps, with lint refusing a Platform dependency on the Demo                                                                                                |
 | Tests at three levels          | Unit tests, API end-to-end tests against a real database and cache, and browser end-to-end tests                                                                                                                            |

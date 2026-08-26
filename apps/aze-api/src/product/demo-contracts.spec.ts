@@ -25,11 +25,14 @@ const readably = (paths: string[]) => paths.map((path) => relative(API_SRC, path
 // that goes with them, which is what this checks. It is Demo itself, and is
 // deleted along with the rest of this directory.
 describe('the Demo contracts', () => {
-  it('are what every Demo request body is declared against', () => {
-    const dtos = sourceFiles(PRODUCT_DIR).filter((path) => path.endsWith('.dto.ts'));
+  it.each([
+    ['request body', '.dto.ts'],
+    ['response schema', '.response.ts'],
+  ])('are what every Demo %s is declared against', (_shape, suffix) => {
+    const classes = sourceFiles(PRODUCT_DIR).filter((path) => path.endsWith(suffix));
 
-    expect(dtos.length).toBeGreaterThan(0);
-    expect(readably(dtos.filter((path) => !reachesDemoContracts(path)))).toEqual([]);
+    expect(classes.length).toBeGreaterThan(0);
+    expect(readably(classes.filter((path) => !reachesDemoContracts(path)))).toEqual([]);
   });
 
   it('are reached from nowhere the Platform keeps', () => {

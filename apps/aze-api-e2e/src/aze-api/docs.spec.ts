@@ -1,15 +1,37 @@
 import axios from 'axios';
-import { anyStatus } from '../support/users';
+import { Components, Schema, schemaProblems } from '../support/documented-schema';
+import { createCatalogueProduct } from '../support/catalogue';
+import { anyStatus, asUser, registerUser } from '../support/users';
+
+const ENVELOPE = '#/components/schemas/ApiErrorResponse';
+
+type Operation = {
+  security?: Record<string, string[]>[];
+  parameters?: unknown;
+  responses: Record<string, { content?: Record<string, { schema: Schema }> }>;
+};
 
 describe('the API documentation', () => {
   let spec: {
-    paths: Record<
-      string,
-      Record<string, { security?: Record<string, string[]>[]; parameters?: unknown }>
-    >;
-    components: { securitySchemes: Record<string, unknown>; schemas: Record<string, unknown> };
+    paths: Record<string, Record<string, Operation>>;
+    components: { securitySchemes: Record<string, unknown>; schemas: Components };
     security?: Record<string, string[]>[];
   };
+
+  /** Every operation the document carries, named as a caller would name it. */
+  const operations = () =>
+    Object.entries(spec.paths).flatMap(([path, methods]) =>
+      Object.entries(methods).map(([method, operation]) => ({
+        name: `${method.toUpperCase()} ${path}`,
+        operation,
+      })),
+    );
+
+  const answerFor = (path: string, method: string, status: string) =>
+    spec.paths[path][method].responses[status];
+
+  const schemaFor = (path: string, method: string, status: string) =>
+    answerFor(path, method, status).content['application/json'].schema;
 
   beforeAll(async () => {
     const res = await axios.get('/api/docs-json', anyStatus);
@@ -123,5 +145,179 @@ describe('the API documentation', () => {
 
   it('shows the machine-to-machine route asking for the key, not a token', () => {
     expect(spec.paths['/api/products'].post.security).toEqual([{ 'api-key': [] }]);
+  });
+
+  // A bare status code tells a generated client the call returned; it does not
+  // say what it returned. Every route, again, rather than a sample.
+  it('answers every operation with a schema, not a bare status', () => {
+    const bare = operations()
+      .filter(({ operation }) => {
+        const success = Object.entries(operation.responses).find(([status]) =>
+          status.startsWith('2'),
+        );
+        return !success?.[1].content?.['application/json']?.schema;
+      })
+      .map(({ name }) => name);
+
+    expect(bare).toEqual([]);
+  });
+
+  it('describes the error envelope once, as a component', () => {
+    const envelope = spec.components.schemas['ApiErrorResponse'] as {
+      properties: Record<string, unknown>;
+    };
+
+    expect(Object.keys(envelope.properties).sort()).toEqual([
+      'message',
+      'path',
+      'statusCode',
+      'timestamp',
+    ]);
+  });
+
+  // Referenced rather than repeated: a refusal that restated the envelope could
+  // come to describe a shape the filter never writes.
+  it('points every refusal at that one envelope', () => {
+    const restated = operations().flatMap(({ name, operation }) =>
+      Object.entries(operation.responses)
+        .filter(([status]) => status >= '400')
+        .filter(([, answer]) => answer.content?.['application/json']?.schema?.$ref !== ENVELOPE)
+        .map(([status]) => `${name} ${status}`),
+    );
+
+    expect(restated).toEqual([]);
+  });
+
+  // The perimeter's own refusals are derived from what each operation declares
+  // about its guard, so these follow the decorators rather than a hand-kept list.
+  it('shows a guarded route refusing a caller with no token', () => {
+    expect(answerFor('/api/users/me', 'get', '401')).toBeDefined();
+    expect(answerFor('/api/products', 'get', '401')).toBeDefined();
+  });
+
+  it('shows the machine-to-machine route refusing the key, not the token', () => {
+    expect(answerFor('/api/products', 'post', '403')).toBeDefined();
+    expect(spec.paths['/api/products'].post.responses['401']).toBeUndefined();
+  });
+
+  // Login's own 401 is about the credentials in the body, not about a
+  // credential the perimeter asked for and did not get; it is documented by
+  // the route, which is why it is not here.
+  it.each([
+    ['/api', 'get'],
+    ['/api/auth/register', 'post'],
+  ])('shows %s %s refusing no credential it never asked for', (path, method) => {
+    expect(spec.paths[path][method].responses['401']).toBeUndefined();
+    expect(spec.paths[path][method].responses['403']).toBeUndefined();
+  });
+
+  it('shows a validated body and a validated query answering 400', () => {
+    expect(answerFor('/api/tag', 'post', '400')).toBeDefined();
+    expect(answerFor('/api/products', 'get', '400')).toBeDefined();
+  });
+
+  it('shows a route that addresses one row answering 404', () => {
+    expect(answerFor('/api/tag/{id}', 'get', '404')).toBeDefined();
+    expect(spec.paths['/api/tag'].get.responses['404']).toBeUndefined();
+  });
+
+  // The same check the DTOs get: without the CLI plugin a field added to a
+  // response class without @ApiProperty would vanish from the schema silently.
+  it.each([
+    ['AuthResponse', ['userId', 'email', 'accessToken']],
+    ['UserProfile', ['id', 'email', 'name', 'createdAt', 'updatedAt']],
+    ['HealthResponse', ['message']],
+    [
+      'Product',
+      ['id', 'name', 'description', 'price', 'categoryId', 'createdAt', 'updatedAt'],
+    ],
+    ['ProductCategory', ['id', 'name']],
+    ['Review', ['id', 'rating', 'comment', 'productId', 'createdAt']],
+    ['Tag', ['id', 'name']],
+  ])('documents every property of %s', (schema, properties) => {
+    const documented = spec.components.schemas[schema] as {
+      properties: Record<string, unknown>;
+    };
+
+    expect(Object.keys(documented.properties).sort()).toEqual([...properties].sort());
+  });
+
+  it('shows the token the auth routes answer with', () => {
+    for (const [path, status] of [
+      ['/api/auth/register', '201'],
+      ['/api/auth/login', '200'],
+    ]) {
+      expect(schemaFor(path, 'post', status).$ref).toBe('#/components/schemas/AuthResponse');
+    }
+  });
+});
+
+// The document above is a claim about what the API sends. These are the same
+// claim, read against what it actually sends — the half no assertion about the
+// document alone can make.
+describe('what the API answers, against what the document says', () => {
+  let spec: {
+    paths: Record<string, Record<string, Operation>>;
+    components: { schemas: Components };
+  };
+
+  beforeAll(async () => {
+    spec = (await axios.get('/api/docs-json', anyStatus)).data;
+  });
+
+  const documented = (path: string, method: string, status: string) =>
+    spec.paths[path][method].responses[status].content['application/json'].schema;
+
+  const expectDocumented = (body: unknown, path: string, method: string, status: string) =>
+    expect(schemaProblems(body, documented(path, method, status), spec.components.schemas)).toEqual(
+      [],
+    );
+
+  it('sends what it documents for a registration', async () => {
+    const res = await axios.post('/api/auth/register', {
+      email: `ada-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
+      password: 'correct horse battery staple',
+      name: 'Ada',
+    });
+
+    expect(res.status).toBe(201);
+    expectDocumented(res.data, '/api/auth/register', 'post', '201');
+  });
+
+  it('sends what it documents for the current User', async () => {
+    const user = await registerUser();
+
+    const res = await axios.get('/api/users/me', asUser(user.accessToken));
+
+    expect(res.status).toBe(200);
+    expectDocumented(res.data, '/api/users/me', 'get', '200');
+  });
+
+  it('sends what it documents for the catalogue', async () => {
+    const user = await registerUser();
+    await createCatalogueProduct(user.accessToken);
+
+    const res = await axios.get('/api/products?limit=1', asUser(user.accessToken));
+
+    expect(res.status).toBe(200);
+    expect(res.data).toHaveLength(1);
+    expectDocumented(res.data, '/api/products', 'get', '200');
+  });
+
+  it('sends the envelope it documents when it refuses', async () => {
+    const res = await axios.get('/api/users/me', anyStatus);
+
+    expect(res.status).toBe(401);
+    expectDocumented(res.data, '/api/users/me', 'get', '401');
+  });
+
+  // The one refusal whose `message` is a list rather than a string, which is
+  // the half of the envelope a single example would never exercise.
+  it('sends the envelope it documents for a field list', async () => {
+    const res = await axios.post('/api/auth/register', { email: 'not an email' }, anyStatus);
+
+    expect(res.status).toBe(400);
+    expect(Array.isArray(res.data.message)).toBe(true);
+    expectDocumented(res.data, '/api/auth/register', 'post', '400');
   });
 });

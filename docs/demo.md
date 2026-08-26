@@ -11,7 +11,7 @@ The order to work in and how to check the result are at the bottom, under **Doin
 | Path | What it is |
 | --- | --- |
 | `libs/demo-contracts/` | The catalogue's shapes on the wire, and the `@aze-mini/demo-contracts` entry in `tsconfig.base.json` `paths` that names it |
-| `apps/aze-api/src/product/` | The whole catalogue: products, categories, reviews, tags — controllers, services and DTOs. `demo-contracts.spec.ts` in it is what checks nothing outside points at the package above |
+| `apps/aze-api/src/product/` | The whole catalogue: products, categories, reviews, tags — controllers, services, DTOs and the `*.response.ts` classes the document describes them with. `demo-contracts.spec.ts` in it is what checks nothing outside points at the package above |
 | `apps/aze-api/prisma/seed.ts` | Seeds the Demo User and catalogue |
 | `apps/aze-api/prisma/seed.spec.ts` | Covers that seed |
 | `apps/aze-api-e2e/src/aze-api/validation.spec.ts` | Exercises validation through catalogue routes |
@@ -34,7 +34,7 @@ The order to work in and how to check the result are at the bottom, under **Doin
 | `apps/aze-client/src/app/page.tsx` | Drop the link to `/catalogue` |
 | `apps/aze-api/src/config/decorators/machine-to-machine.decorator.ts` | Keep the decorator if you want key auth; its only use is `POST /products`, which goes with the catalogue (ADR-0002) |
 | `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
-| `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks |
+| `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks, the properties of the catalogue's schemas, and reads a real catalogue response against the one documented for it. Its Platform cases — the envelope, the auth routes, the current User — stay |
 | `apps/aze-client-e2e/src/session.spec.ts` | Its last two cases sign in and then read the catalogue; the rest are Platform and stay. The seeded credentials at the top go with the seed |
 
 ### The contracts, which are two packages

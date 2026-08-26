@@ -201,3 +201,7 @@ The five canonical triage roles, using the default label strings. See `docs/agen
 ### Domain docs
 
 Single-context — one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Running it in Docker
+
+Build and start both apps with Compose, seed the Demo, stop or reset. See `docs/agents/run-docker.md`.

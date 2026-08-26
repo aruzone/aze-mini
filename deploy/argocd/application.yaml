@@ -20,7 +20,7 @@ spec:
     # A tag or a commit, not a branch: a branch means the cluster's contents
     # change when someone merges, which is not a deployment anyone decided to
     # make. See ADR-0004 — an Adopter owns what they are running.
-    targetRevision: v0.1.0
+    targetRevision: v0.2.0
     path: deploy/helm/aze
 
     helm:

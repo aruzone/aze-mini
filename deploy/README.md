@@ -21,13 +21,13 @@ Both come from this repository, and both need the repository root as the build
 context:
 
 ```bash
-docker build -f apps/aze-api/Dockerfile    -t ghcr.io/your-org/aze-api:v0.1.0     .
-docker build -f apps/aze-client/Dockerfile -t ghcr.io/your-org/aze-client:v0.1.0  .
+docker build -f apps/aze-api/Dockerfile    -t ghcr.io/your-org/aze-api:v0.2.0     .
+docker build -f apps/aze-client/Dockerfile -t ghcr.io/your-org/aze-client:v0.2.0  .
 
 # The migration job runs the API Dockerfile's `migrator` stage, which carries
 # the Prisma CLI that the runtime image deliberately does not.
 docker build -f apps/aze-api/Dockerfile --target migrator \
-  -t ghcr.io/your-org/aze-migrate:v0.1.0 .
+  -t ghcr.io/your-org/aze-migrate:v0.2.0 .
 ```
 
 `AZE_API_URL` is read by the client's server at request time rather than
@@ -43,11 +43,11 @@ helm upgrade --install aze deploy/helm/aze \
   --namespace aze --create-namespace \
   --set secrets.existingSecret=aze-secrets \
   --set api.image.repository=ghcr.io/your-org/aze-api \
-  --set api.image.tag=v0.1.0 \
+  --set api.image.tag=v0.2.0 \
   --set client.image.repository=ghcr.io/your-org/aze-client \
-  --set client.image.tag=v0.1.0 \
+  --set client.image.tag=v0.2.0 \
   --set migrate.image.repository=ghcr.io/your-org/aze-migrate \
-  --set migrate.image.tag=v0.1.0
+  --set migrate.image.tag=v0.2.0
 ```
 
 The Secret it expects carries `DATABASE_URL`, `JWT_SECRET`, `API_KEY` and

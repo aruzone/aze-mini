@@ -7,7 +7,22 @@ import { ApiErrorResponse } from '@aze-mini/platform-contracts';
  * are for. This is read on the server, so one image serves every environment.
  */
 export function apiUrl(): string {
-  return process.env.AZE_API_URL ?? 'http://localhost:3030/api';
+  const configured = process.env.AZE_API_URL;
+  if (configured) {
+    return configured;
+  }
+
+  // The API refuses to start on a variable it was not given rather than
+  // guessing (src/config/configuration.ts). Falling back to localhost in a
+  // deployed client would be the same mistake, and would show up as every
+  // page failing for a reason nothing named.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AZE_API_URL is not set, so the client has no API to talk to. See apps/aze-client/.env.example.',
+    );
+  }
+
+  return 'http://localhost:3030/api';
 }
 
 /** A refusal the API described, carrying the status it answered with. */
@@ -23,7 +38,7 @@ export class ApiError extends Error {
 
 type Options = {
   token?: string;
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST';
   body?: unknown;
 };
 

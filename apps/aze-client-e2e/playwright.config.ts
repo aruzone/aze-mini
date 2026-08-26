@@ -37,7 +37,11 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'npx nx run aze-client:start',
+      // `start` is a production build, and a production client refuses to guess
+      // where the API is rather than quietly defaulting to localhost
+      // (src/lib/api.ts). A deployment sets this, so this does too — inline,
+      // because Playwright's `env` does not survive the hop through Nx.
+      command: 'AZE_API_URL=http://localhost:3030/api npx nx run aze-client:start',
       url: 'http://localhost:3000/login',
       reuseExistingServer: true,
       cwd: workspaceRoot,

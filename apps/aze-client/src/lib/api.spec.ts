@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from './api';
+import { ApiError, apiFetch, apiUrl } from './api';
 
 const respondWith = (status: number, body: unknown) =>
   jest.fn().mockResolvedValue({
@@ -17,6 +17,26 @@ describe('apiFetch', () => {
   afterEach(() => {
     process.env.AZE_API_URL = originalUrl;
     jest.restoreAllMocks();
+  });
+
+  // The API refuses to start on a variable it was not given. A client that
+  // guessed localhost instead would fail every page in production for a reason
+  // nothing named.
+  it('refuses to guess an API in production', () => {
+    const wasNodeEnv = process.env.NODE_ENV;
+    delete process.env.AZE_API_URL;
+    try {
+      process.env.NODE_ENV = 'production';
+      expect(() => apiUrl()).toThrow(/AZE_API_URL/);
+    } finally {
+      process.env.NODE_ENV = wasNodeEnv;
+    }
+  });
+
+  it('falls back to the local API a clone starts, in development', () => {
+    delete process.env.AZE_API_URL;
+
+    expect(apiUrl()).toBe('http://localhost:3030/api');
   });
 
   it('reads a path against the configured API', async () => {

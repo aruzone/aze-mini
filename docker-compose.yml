@@ -87,6 +87,21 @@ services:
       API_DOCS: 'true'
     ports:
       - '127.0.0.1:${API_PORT:-3030}:3030'
+    # The root route is public, so this needs no credential. Without a
+    # healthcheck `docker compose up --wait` would return as soon as the
+    # process existed, which is well before it answers.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3030/api').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,8 +121,22 @@ services:
       AZE_API_URL: http://api:3030/api
     ports:
       - '127.0.0.1:${CLIENT_PORT:-3000}:3000'
+    # /login is the one page that renders without a session.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/login').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   postgres-data:

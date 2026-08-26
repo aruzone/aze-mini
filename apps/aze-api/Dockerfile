@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Node matches .nvmrc and package.json engines. Change one and change all three
-# — CLAUDE.md says so, and this is the third.
+# Node matches .nvmrc and package.json engines, and the CI workflow. Change one
+# and change all four — CLAUDE.md says so, and this is one of them.
 ARG NODE_VERSION=24
 
 # Debian rather than Alpine: Prisma's query engine wants glibc and OpenSSL, and
@@ -37,6 +37,9 @@ RUN npx nx build aze-api
 # build and nothing to pull.
 FROM builder AS migrator
 WORKDIR /app/apps/aze-api
+# Non-root like the runtime image. The chart runs this Job under
+# runAsNonRoot, which a root image would fail to schedule at all.
+USER node
 CMD ["npx", "prisma", "migrate", "deploy"]
 
 

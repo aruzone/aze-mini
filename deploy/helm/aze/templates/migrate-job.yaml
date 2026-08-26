@@ -28,6 +28,8 @@ spec:
         - name: migrate
           image: {{ include "aze.image" (list .Values.migrate.image .Chart.AppVersion) }}
           imagePullPolicy: {{ .Values.migrate.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           # deploy, not dev: it applies the committed migrations and never
           # writes one, so a schema change nobody migrated fails here.
           command: ["npx", "prisma", "migrate", "deploy"]
@@ -35,4 +37,10 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "aze.secretName" . }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
 {{- end }}

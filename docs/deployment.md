@@ -45,7 +45,7 @@ Delete it, or never run the seed against anything real. See
   once, including everyone else's.
 
 If any of that is unacceptable for what you are building — and for anything
-handling real accounts it probably is — shorten the expiry, add a refresh token,
+holding real Users it probably is — shorten the expiry, add a refresh token,
 and put a revocation check somewhere. Decide this before launch, not after an
 incident.
 
@@ -98,16 +98,18 @@ Nothing here backs anything up.
 - Every route requires a bearer token unless it opts out with `@Public()`
   (ADR-0002). Three do: the health route, login, and registration.
 - `POST /products` uses an API key instead, via `@MachineToMachine()`.
-- **Registration is open.** Anyone who can reach `/auth/register` can create an
-  account. If that is not what you want, that is your change to make.
+- **Registration is open.** Anyone who can reach `/auth/register` can create a
+  User. If that is not what you want, that is your change to make.
 - **There is no rate limiting anywhere.** Login included. Nothing slows down a
   password-guessing loop.
 - **There are no security headers.** No HSTS, no CSP, no `X-Frame-Options`.
 
 ### 9. Run it as a non-root user with a read-only root
 
-Both images already do (`USER node`, and the chart sets
-`readOnlyRootFilesystem`). If you change the images, keep that.
+All three images already do — the API, the client, and the `migrator` stage the
+migration job runs — and the chart sets `readOnlyRootFilesystem` on every
+workload, including the job that holds `DATABASE_URL`. If you change the
+images, keep that.
 
 ## The short version
 

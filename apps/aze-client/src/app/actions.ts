@@ -1,6 +1,6 @@
 'use server';
 
-import { AuthResponse } from '@aze-mini/platform-contracts';
+import { AuthResponse, LoginRequest } from '@aze-mini/platform-contracts';
 import { redirect } from 'next/navigation';
 import { ApiError, apiFetch } from '../lib/api';
 import { endSession, startSession } from '../lib/session';
@@ -13,13 +13,17 @@ export type LoginState = { error?: string };
  * goes straight into an httpOnly cookie.
  */
 export async function login(_state: LoginState, form: FormData): Promise<LoginState> {
-  const email = String(form.get('email') ?? '');
-  const password = String(form.get('password') ?? '');
+  // A form field is a string or a File; the contract is what says which of
+  // them the API is being sent.
+  const credentials: LoginRequest = {
+    email: String(form.get('email') ?? ''),
+    password: String(form.get('password') ?? ''),
+  };
 
   try {
     const session = await apiFetch<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: credentials,
     });
     await startSession(session.accessToken);
   } catch (error) {

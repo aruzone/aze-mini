@@ -53,24 +53,24 @@ that are _not_ held to that bar say so out loud.
 
 ## What is already wired
 
-| Area                           | What you get                                                                                                                                                                                                                |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authentication                 | Register and login, passwords hashed with bcryptjs, signed JWTs with a one-day expiry, a `GET /users/me` that reads the verified token                                                                                      |
-| Login throttling               | Failed sign-ins counted two ways — per source **and** User, so a password cannot be guessed; per source alone, so one host cannot work through a list of Users. A success clears the count                                  |
-| Request perimeter              | A global guard every route passes through, an explicit `@Public()` opt-out, an API-key route for machine callers, and a validation pipe that refuses an undeclared field by name rather than dropping it                    |
-| One error envelope             | Every refusal answers `{ statusCode, timestamp, path, message }`. Database failures are translated — a missing row is a 404, a unique collision a 409 naming the column                                                     |
-| Security headers               | Helmet on the API with a strict content policy, loosened only for the documentation page; headers on the client too                                                                                                         |
-| CORS from the environment      | Allowed origins are configuration, not code. Defaults to the client a local clone starts                                                                                                                                    |
-| Proxy awareness                | What the API believes about `X-Forwarded-For` is explicit, because throttling counts on it                                                                                                                                  |
-| Caching with real invalidation | Redis behind one service. Keys, TTL and invalidation live in a single file, responses carry `X-Cache: HIT\|MISS`, and one deletion forgets every cached variant of a list at once                                           |
-| Safe deletes                   | A delete blocked by a relation answers 409 naming the rows still pointing at it, instead of a 500                                                                                                                           |
-| Startup configuration check    | The API names every missing or placeholder variable at once and refuses to start, before it connects to anything                                                                                                            |
-| API documentation              | An interactive OpenAPI page at `/api/docs`, generated from the same decorators that guard the routes, with a schema on every request and every response, and switchable off per environment                                                                                    |
-| Session handling               | The token lives in an `httpOnly`, `sameSite=lax` cookie; middleware redirects a signed-out visitor, so a page added later is protected by existing                                                                          |
-| Shared contracts               | The shapes that cross the wire are declared once and used by both apps, with lint refusing a Platform dependency on the Demo                                                                                                |
-| Tests at three levels          | Unit tests, API end-to-end tests against a real database and cache, and browser end-to-end tests                                                                                                                            |
-| CI on every pull request       | Lint, test and build across affected projects, plus the API suite against real Postgres and Redis services. It reads no repository secrets, so it runs unchanged in a fork                                                  |
-| Containers                     | Multi-stage images for both apps, running as a non-root user, with a separate stage for migrations                                                                                                                          |
+| Area                           | What you get                                                                                                                                                                                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication                 | Register and login, passwords hashed with bcryptjs, signed JWTs with a one-day expiry, a `GET /users/me` that reads the verified token                                                                                                              |
+| Login throttling               | Failed sign-ins counted two ways — per source **and** User, so a password cannot be guessed; per source alone, so one host cannot work through a list of Users. A success clears the count                                                          |
+| Request perimeter              | A global guard every route passes through, an explicit `@Public()` opt-out, an API-key route for machine callers, and a validation pipe that refuses an undeclared field by name rather than dropping it                                            |
+| One error envelope             | Every refusal answers `{ statusCode, timestamp, path, message }`. Database failures are translated — a missing row is a 404, a unique collision a 409 naming the column                                                                             |
+| Security headers               | Helmet on the API with a strict content policy, loosened only for the documentation page; headers on the client too                                                                                                                                 |
+| CORS from the environment      | Allowed origins are configuration, not code. Defaults to the client a local clone starts                                                                                                                                                            |
+| Proxy awareness                | What the API believes about `X-Forwarded-For` is explicit, because throttling counts on it                                                                                                                                                          |
+| Caching with real invalidation | Redis behind one service. Keys, TTL and invalidation live in a single file, responses carry `X-Cache: HIT\|MISS`, and one deletion forgets every cached variant of a list at once                                                                   |
+| Safe deletes                   | A delete blocked by a relation answers 409 naming the rows still pointing at it, instead of a 500                                                                                                                                                   |
+| Startup configuration check    | The API names every missing or placeholder variable at once and refuses to start, before it connects to anything                                                                                                                                    |
+| API documentation              | An interactive OpenAPI page at `/api/docs`, generated from the same decorators that guard the routes, with a schema on every request and every response, and switchable off per environment                                                         |
+| Session handling               | The token lives in an `httpOnly`, `sameSite=lax` cookie; middleware redirects a signed-out visitor, so a page added later is protected by existing                                                                                                  |
+| Shared contracts               | The shapes that cross the wire are declared once and used by both apps, with lint refusing a Platform dependency on the Demo                                                                                                                        |
+| Tests at three levels          | Unit tests, API end-to-end tests against a real database and cache, and browser end-to-end tests                                                                                                                                                    |
+| CI on every pull request       | Lint, test and build across affected projects, plus the API suite against real Postgres and Redis services. It reads no repository secrets, so it runs unchanged in a fork                                                                          |
+| Containers                     | Multi-stage images for both apps, running as a non-root user, with a separate stage for migrations                                                                                                                                                  |
 | Deployment readiness           | A compose stack that migrates before it serves; a Helm chart with a pre-upgrade migration hook, readiness and liveness probes, secrets by reference and a read-only root filesystem; Argo CD Applications for staging and production pointing at it |
 
 ## The stack
@@ -122,6 +122,11 @@ that are _not_ held to that bar say so out loud.
 
 Two ways in. Everything in Docker is fewer steps; the local toolchain is what
 you want for day-to-day work.
+
+Both are written up as runbooks a coding agent can follow unaided —
+[docs/agents/run-docker.md](docs/agents/run-docker.md) and
+[docs/agents/run-dev.md](docs/agents/run-dev.md). They carry the same steps as
+below, plus what to check when it is up and the things that catch people out.
 
 ### Everything in Docker
 
@@ -217,7 +222,8 @@ them. This one is written to be read by both audiences:
 - **[docs/adr/](docs/adr/)** — the decisions already taken, so a change that
   contradicts one is caught as a contradiction rather than made by accident.
 - **[docs/agents/](docs/agents/)** — the conventions to follow here: the issue
-  tracker and its commands, the triage labels, how to read the domain docs.
+  tracker and its commands, the triage labels, how to read the domain docs, and
+  a runbook for each way of running it — `run-docker.md` and `run-dev.md`.
 - **One place per concern.** Cache keys and their invalidation, the database
   error codes, the API-key header name, the security headers, the environment
   check — each lives in a single named file, so a change is one edit rather

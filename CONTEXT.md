@@ -23,3 +23,11 @@ _Avoid_: example, sample, boilerplate, placeholder
 **User**:
 A person holding credentials in an application built from the Starter. Never the Adopter.
 _Avoid_: account, member, customer
+
+**Environment**:
+One named place the product runs for an audience — such as qa, uat, prod — ordered by trust. Every environment holds deployments serving Tenants; prod is the one whose Tenants are real. An Environment is never a Tenant.
+_Avoid_: stage, cluster, tenant, level
+
+**Tenant**:
+A customer of an application built from the Starter, served by that customer's own dedicated deployment. Tenancy lives in operations — one product, many deployments — never inside a deployment, which stays single-Tenant.
+_Avoid_: multi-tenant, account, workspace, environment

@@ -58,7 +58,12 @@ function walk(dir, out = { files: [], dirs: [] }) {
 
 const tree = walk(ROOT);
 // The dotfiles the walk skips but a document may still name.
-tree.files.push('.nvmrc', '.editorconfig', 'apps/aze-api/.env.example');
+tree.files.push(
+  '.nvmrc',
+  '.editorconfig',
+  'apps/aze-api/.env.example',
+  'apps/aze-client/.env.example',
+);
 const everything = new Set([...tree.files, ...tree.dirs]);
 
 /** A document may name a file by its tail — `guards/auth.guard.ts` — so match on

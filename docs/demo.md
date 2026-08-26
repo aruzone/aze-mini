@@ -36,6 +36,7 @@ The order to work in and how to check the result are at the bottom, under **Doin
 | `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks, the properties of the catalogue's schemas, and reads a real catalogue response against the one documented for it. Its Platform cases — the envelope, the auth routes, the current User — stay |
 | `apps/aze-client-e2e/src/session.spec.ts` | Its last two cases sign in and then read the catalogue; the rest are Platform and stay. The seeded credentials at the top go with the seed |
+| `apps/aze-client-e2e/src/appearance.spec.ts` | Platform — the shell, the tokens and the dark scheme all survive the catalogue. It signs in with the seeded credentials at the top, which go with the seed, and its heading and narrow-viewport cases visit `/catalogue` |
 
 ### The contracts, which are two packages
 

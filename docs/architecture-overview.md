@@ -51,7 +51,9 @@ Both are plain types depending on nothing, so either application can declare its
 
 | Layer      | Files                        | Responsibility                                                      |
 | ---------- | ---------------------------- | ------------------------------------------------------------------- |
-| App shell  | `src/app/layout.tsx`         | Root HTML layout with global CSS                                    |
+| Root layout | `src/app/layout.tsx`        | Root HTML document, pulling in the token layer                      |
+| Tokens     | `src/app/global.css`         | Colours, type and radii as `@theme` tokens, and the dark scheme     |
+| App shell  | `src/components/shell.tsx`   | The header and `main` landmark every page sits inside (Platform)    |
 | Home page  | `src/app/page.tsx`           | Authenticated: reads `GET /users/me` server-side                    |
 | Login      | `src/app/login/page.tsx`     | Sign-in form, posting to a server action                            |
 | Catalogue  | `src/app/catalogue/page.tsx` | Demo: lists products from the API                                   |

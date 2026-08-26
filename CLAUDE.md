@@ -146,7 +146,7 @@ Next.js app (React 19) with Tailwind CSS, running on port 3000. It talks to the 
 - `src/app/catalogue/` — lists the catalogue (Demo)
 - `src/app/login/` — the sign-in form (Platform)
 
-CORS on the API still allows `http://localhost:3000` for anything that *does* call it from a browser — the docs page, another front end. It is hardcoded; #7 makes it env-driven.
+CORS on the API is `CORS_ORIGIN`, defaulting to `http://localhost:3000`. It matters only for callers that reach the API *from a browser* — the docs page, another front end — because the client's own pages call it from the Next server.
 
 ### Containers and deployment
 

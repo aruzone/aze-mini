@@ -7,8 +7,8 @@ const REQUIRED_VARIABLES = ['DATABASE_URL', 'JWT_SECRET', 'API_KEY'] as const;
 // copied and never edited.
 const PLACEHOLDER = /^your_.*_here$/;
 
-export const configurationProblems = (): string[] =>
-  REQUIRED_VARIABLES.flatMap((name) => {
+export const configurationProblems = (): string[] => [
+  ...REQUIRED_VARIABLES.flatMap((name) => {
     const value = process.env[name]?.trim();
 
     if (!value) {
@@ -18,7 +18,42 @@ export const configurationProblems = (): string[] =>
       return `${name} is still the placeholder from .env.example. Replace it.`;
     }
     return [];
-  });
+  }),
+  ...optionalVariableProblems(),
+];
+
+// These have working defaults, so an absent one is no problem at all. A value
+// that cannot be understood is a different thing: Express throws on an
+// unparseable `trust proxy` from somewhere that names nothing, and a `*` origin
+// asked to carry credentials fails in the browser rather than here. Both are
+// said in the one place that says which variable is wrong.
+const optionalVariableProblems = (): string[] => {
+  const problems: string[] = [];
+
+  const trust = process.env.TRUST_PROXY?.trim();
+  if (trust && !isUnderstoodTrustProxy(trust)) {
+    problems.push(
+      `TRUST_PROXY is "${trust}", which is not a number of hops, true, false, or an address. See apps/aze-api/.env.example.`,
+    );
+  }
+
+  return problems;
+};
+
+const TRUST_PROXY_NAMES = ['true', 'false', 'loopback', 'linklocal', 'uniquelocal'];
+
+const isUnderstoodTrustProxy = (value: string): boolean => {
+  if (TRUST_PROXY_NAMES.includes(value)) {
+    return true;
+  }
+  const hops = Number(value);
+  if (Number.isInteger(hops) && hops >= 0) {
+    return true;
+  }
+  // Anything else has to look like an address or a subnet, which is the only
+  // other thing Express accepts. A bare word does not.
+  return /^[0-9a-fA-F.:/,\s]+$/.test(value);
+};
 
 /** The client a local clone starts, and the only origin allowed until asked. */
 const DEFAULT_CORS_ORIGIN = 'http://localhost:3000';

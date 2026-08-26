@@ -179,6 +179,40 @@ describe('appConfig', () => {
   });
 });
 
+describe('an optional variable nobody can act on', () => {
+  const original = process.env;
+
+  beforeEach(() => {
+    process.env = { ...original, DATABASE_URL: 'postgres://x', JWT_SECRET: 's', API_KEY: 'k' };
+    delete process.env.TRUST_PROXY;
+  });
+
+  afterAll(() => {
+    process.env = original;
+  });
+
+  it('is no problem when it is simply absent', () => {
+    expect(configurationProblems()).toEqual([]);
+  });
+
+  // Express throws on a `trust proxy` it cannot parse, from somewhere that
+  // names no variable. This is the one place that says which one is wrong.
+  it('names TRUST_PROXY when it holds something meaningless', () => {
+    process.env.TRUST_PROXY = 'yes please';
+
+    expect(configurationProblems()).toEqual([expect.stringContaining('TRUST_PROXY')]);
+  });
+
+  it.each(['1', '0', 'true', 'false', 'loopback', '10.0.0.0/8'])(
+    'accepts %s',
+    (value) => {
+      process.env.TRUST_PROXY = value;
+
+      expect(configurationProblems()).toEqual([]);
+    },
+  );
+});
+
 describe('configurationProblems', () => {
   const original = process.env;
 

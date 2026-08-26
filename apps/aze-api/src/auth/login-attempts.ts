@@ -17,6 +17,9 @@ export const MAX_FAILED_LOGINS_PER_SOURCE = 20;
 /** How long failures are remembered, and so how long a refusal lasts. */
 export const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
+/** How often expired counts are swept up. See `prune`. */
+const PRUNE_INTERVAL_MS = 60 * 1000;
+
 type Failures = { count: number; expiresAt: number };
 
 // Two counts per failure, kept in one map under keys that cannot collide.
@@ -32,12 +35,15 @@ const userKey = (source: string, email: string) => `user:${source}:${email}`;
  *
  * Counting per source only would mean one person mistyping their password on a
  * shared address — an office, a NAT, a mobile network — locking out everyone
- * behind it. Counting per User only would leave enumeration unlimited.
+ * behind it after five tries. The second limit still does that at twenty, so
+ * this raises the bar rather than removing the problem; a deployment serving
+ * large shared addresses should raise it further. Counting per User only would
+ * leave working through a list of them unlimited.
  *
- * Only failures count. A successful sign-in clears that User's record, so
- * nothing an ordinary session does consumes the budget. It deliberately does
- * not clear the source's record: an attacker holding one valid credential
- * would otherwise reset the trail of every account they had tried.
+ * Only failures count, so signing in successfully never uses the per-User
+ * budget up. It deliberately does not clear the source's count: an attacker
+ * holding one valid credential would otherwise wipe the trail of every User
+ * they had already tried.
  *
  * The counts live in this process, which is the honest limit of them: two
  * replicas mean two counts, and an attacker spread across both gets twice the
@@ -49,6 +55,7 @@ const userKey = (source: string, email: string) => `user:${source}:${email}`;
 @Injectable()
 export class LoginAttempts {
   private readonly failures = new Map<string, Failures>();
+  private lastPrunedAt = Date.now();
 
   /** How many counts are being held. For the test that keeps pruning honest. */
   get size(): number {
@@ -107,11 +114,19 @@ export class LoginAttempts {
     return record;
   }
 
-  // Nothing else sweeps this map, and an attacker rotating addresses is
-  // exactly what would grow it without bound. Every write pays for the sweep,
-  // and a write only happens on a failed sign-in.
+  // Nothing else sweeps this map, and an attacker rotating addresses is what
+  // would grow it. Correctness does not depend on the sweep — `current()`
+  // ignores anything expired whether or not it is still in the map — so this
+  // only reclaims memory, and doing it on every failure would be O(n) per
+  // write: quadratic work handed to exactly the caller causing it. Once a
+  // minute reclaims the same memory and costs nothing per attempt.
   private prune(): void {
     const now = Date.now();
+    if (now - this.lastPrunedAt < PRUNE_INTERVAL_MS) {
+      return;
+    }
+    this.lastPrunedAt = now;
+
     for (const [key, record] of this.failures) {
       if (record.expiresAt <= now) {
         this.failures.delete(key);

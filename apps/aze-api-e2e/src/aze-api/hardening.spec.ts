@@ -35,9 +35,37 @@ describe('the hardening every response inherits', () => {
 
       expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
     });
+    // Swagger registers its own Express route. Headers added after it never
+    // reach the page — and it is the only response here a browser renders.
+    it('are on the documentation page, not only the JSON routes', async () => {
+      const res = await axios.get('/api/docs');
+
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['x-powered-by']).toBeUndefined();
+    });
+
+    // Swagger UI is built from inline script, so that page alone gets a policy
+    // permitting it. The document beside it is JSON and gets no such licence.
+    it('relax for the page that renders, and nothing else', async () => {
+      const page = await axios.get('/api/docs');
+      const document = await axios.get('/api/docs-json');
+
+      expect(page.headers['content-security-policy']).toContain("'unsafe-inline'");
+      expect(document.headers['content-security-policy']).not.toContain("'unsafe-inline'");
+    });
   });
 
   describe('the allowed origin', () => {
+    // The docs page is a browser client of this API like any other, and it is
+    // registered after the CORS middleware for exactly that reason.
+    it('reaches the documentation page too', async () => {
+      const res = await axios.get('/api/docs', {
+        headers: { origin: 'http://localhost:3000' },
+      });
+
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    });
+
     // The default is the client a local clone starts, and the e2e suite runs
     // against a clone that configured nothing.
     it('lets the client the Starter ships call the API', async () => {

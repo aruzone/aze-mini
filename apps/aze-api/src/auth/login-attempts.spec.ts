@@ -80,7 +80,7 @@ describe('LoginAttempts', () => {
     });
 
     // A shared address — an office, a NAT, a mobile network — must not mean one
-    // User's mistyping locks their colleagues out of their own accounts.
+    // User mistyping their password locks their colleagues out of their own.
     it('counts each User separately within one source', () => {
       failTimes(MAX_FAILED_LOGINS, SOURCE, OTHER_EMAIL);
 
@@ -111,8 +111,8 @@ describe('LoginAttempts', () => {
       expect(() => attempts.refuseIfExhausted(SOURCE, 'someone-else@example.com')).not.toThrow();
     });
 
-    // Getting into one account does not clear the trail of the others it
-    // tried, or an attacker with a single valid credential would reset it.
+    // Getting into one of them does not clear the trail of the rest, or an
+    // attacker holding a single valid credential would reset it at will.
     it('is not cleared by getting into one of them', () => {
       failAgainstDistinctUsers(MAX_FAILED_LOGINS_PER_SOURCE);
 

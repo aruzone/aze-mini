@@ -59,10 +59,12 @@ everywhere else. Several are allowed, comma separated:
 CORS_ORIGIN="https://app.example.com,https://admin.example.com"
 ```
 
-`*` is passed through as itself and allows every origin. Combined with
-`credentials: true` a browser will refuse the combination outright, so it is
-rarely what anyone wants — and it means any page anywhere can make a User's
-browser call your API.
+`*` is passed through as itself and allows every origin. Setting it also turns
+**credentials off**, because a browser refuses `Access-Control-Allow-Origin: *`
+together with credentials and would fail every cross-origin call for a reason
+neither setting names. So `*` means: any page anywhere may call your API, and
+none of them may send a cookie while doing it. That is rarely what anyone
+wants.
 
 Note what does *and does not* depend on this. The client's own pages call the API
 from the Next **server**, not the browser, so they are unaffected by CORS

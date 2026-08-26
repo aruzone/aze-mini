@@ -7,24 +7,24 @@ import helmet, { type HelmetOptions } from 'helmet';
  * response that *is* rendered — the documentation page — is the one an attacker
  * would most like to frame or inject into.
  */
+const STRICT_DIRECTIVES = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'"],
+  styleSrc: ["'self'"],
+  imgSrc: ["'self'", 'data:'],
+  // Nothing here is meant to be framed, and this is what a modern browser
+  // reads instead of X-Frame-Options.
+  frameAncestors: ["'none'"],
+  formAction: ["'self'"],
+  baseUri: ["'self'"],
+  objectSrc: ["'none'"],
+  // Left to the deployment: a local clone has no TLS, so upgrading every
+  // request to HTTPS would break it before an Adopter saw it work.
+  upgradeInsecureRequests: null,
+};
+
 const STRICT: HelmetOptions = {
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:'],
-      // Nothing here is meant to be framed, and this is what a modern browser
-      // reads instead of X-Frame-Options.
-      frameAncestors: ["'none'"],
-      formAction: ["'self'"],
-      baseUri: ["'self'"],
-      objectSrc: ["'none'"],
-      // Left to the deployment: a local clone has no TLS, so upgrading every
-      // request to HTTPS would break it before an Adopter saw it work.
-      upgradeInsecureRequests: null,
-    },
-  },
+  contentSecurityPolicy: { directives: STRICT_DIRECTIVES },
 
   // Reach this origin over HTTPS for the next six months. Deliberately not
   // preloaded: preloading is close to irreversible and is a decision about a
@@ -58,13 +58,12 @@ const FOR_DOCS: HelmetOptions = {
   ...STRICT,
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
+      // Built from the strict directives rather than restated, so a directive
+      // added there cannot quietly fail to reach the one page that renders.
+      ...STRICT_DIRECTIVES,
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      frameAncestors: ["'none'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: null,
     },
   },
 };
@@ -80,7 +79,12 @@ export function securityHeaders(docsPath?: string): RequestHandler {
   const docsPrefix = docsPath ? `/${docsPath}` : undefined;
 
   return (req, res, next) => {
-    const isDocs = docsPrefix !== undefined && req.path.startsWith(docsPrefix);
+    // Exactly the page, not everything beginning with its name: `-json` beside
+    // it is a JSON document that has no more use for inline script than any
+    // other route here.
+    const isDocs =
+      docsPrefix !== undefined &&
+      (req.path === docsPrefix || req.path.startsWith(`${docsPrefix}/`));
     return (isDocs ? forDocs : strict)(req, res, next);
   };
 }

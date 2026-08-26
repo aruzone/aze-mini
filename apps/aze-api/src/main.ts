@@ -63,22 +63,32 @@ async function bootstrap() {
   const docsPath = `${globalPrefix}/${DOCS_ROUTE}`;
   app.use(securityHeaders(docsEnabled ? docsPath : undefined));
 
-  if (docsEnabled) {
-    setupDocs(app, globalPrefix);
-  }
+  // A browser refuses `Access-Control-Allow-Origin: *` together with
+  // credentials, so asking for both would leave every cross-origin call
+  // failing for a reason neither setting names. Allowing any origin means
+  // giving up on sending cookies to it.
+  const anyOrigin = corsOrigins === '*';
 
   app.enableCors({
     // From the environment, so a deployment permits its own origin without a
     // code change. Defaults to the client a local clone starts.
     origin: corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    credentials: !anyOrigin,
     // A browser hands script only the handful of headers it is told to. The
     // cached routes answer with X-Cache, and the client that reads them runs
     // in a browser, so saying nothing here would hide it from the one consumer
     // the Starter ships (ADR-0005).
     exposedHeaders: [CACHE_STATUS_HEADER],
   });
+
+  // After the middleware above, both of them: Swagger registers its own Express
+  // route, and Express runs handlers in the order they were added. Registering
+  // the document first would leave the one page a browser renders as the only
+  // response with neither security headers nor CORS on it.
+  if (docsEnabled) {
+    setupDocs(app, globalPrefix);
+  }
 
   app.useGlobalPipes(validationPipe());
   app.useGlobalFilters(new ApiExceptionFilter());

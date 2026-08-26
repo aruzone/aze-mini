@@ -10,7 +10,10 @@ export const DOCS_ROUTE = 'docs';
  * ADR-0002: a route is documented as protected unless a decorator says
  * otherwise, exactly as it is protected unless a decorator says otherwise.
  *
- * Returns the path it served on, so the caller can log one truth.
+ * The path is `DOCS_ROUTE` under the global prefix. main.ts builds the same
+ * string before this runs — it has to register the security headers and CORS
+ * ahead of the route Swagger adds here — so the constant is the shared truth
+ * rather than this return value.
  */
 export function setupDocs(app: INestApplication, globalPrefix: string) {
   const path = `${globalPrefix}/${DOCS_ROUTE}`;

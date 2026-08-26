@@ -84,7 +84,7 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 
 **Module structure:**
 - `src/app/` — Root `AppModule` wiring everything together
-- `src/auth/` — JWT authentication (`AuthService`, `AuthController`, and `password.ts`, the one place a password becomes a hash — the Demo seed uses it too). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
+- `src/auth/` — JWT authentication (`AuthService`, `AuthController`, `password.ts`, the one place a password becomes a hash — the Demo seed uses it too — and `login-attempts.ts`, which throttles failed sign-ins two ways: per source **and** User so a password cannot be guessed, and per source alone so one host cannot work through a list of Users. Only failures count, and a success clears that User's record. The counts live in the process, which `docs/deployment.md` records as the limit it is). `POST /auth/register` creates a User with a `bcryptjs` hash (see ADR-0003) and returns a token; `POST /auth/login` verifies against that hash and issues JWT tokens (1-day expiry).
 - `src/users/` — `GET /users/me` only, reading the id off the verified token; also used by `AuthService` for login validation. It does not create accounts — registration is the only way in — and it never returns the `password` field
 - `src/product/` — Feature group containing:
   - `products/` — Full CRUD for products. The two read routes go through `product-cache.ts`, the Demo of caching: keys, TTL and invalidation are all spelled out in that one file. A single product is keyed by id; lists are keyed by sort and limit under a generation token, so one deletion forgets every variant at once
@@ -100,6 +100,7 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
   - `api-key.guard.ts` — `x-api-key` header guard; reads `API_KEY` env var; throws `ForbiddenException` on failure. Never stacked on top of the JWT guard
   - `pipes/validation.pipe.ts` — The global `ValidationPipe` (active in `main.ts`). `whitelist` + `forbidNonWhitelisted` mean an undeclared property is refused by name, not dropped
   - `security.ts` — The `x-api-key` header name and the OpenAPI scheme names, so the guards and the documentation cannot advertise different credentials
+  - `security-headers.ts` — The Helmet policy every response carries, applied in `main.ts` **before** `setupDocs`: Swagger registers its own Express route, and headers added after it would never reach the one page a browser renders. The docs path gets a looser CSP because Swagger UI is built from inline script and style; every other route keeps a strict one
   - `docs.ts` — Builds and serves the OpenAPI document (active in `main.ts` when `API_DOCS` allows). Bearer auth is required document-wide, mirroring the global guard; the two opt-out decorators carry their own exception
   - `api-exception.filter.ts` — Global exception filter (active in `main.ts`). It catches everything and answers in one envelope: `{ statusCode, timestamp, path, message }`. It takes `message` from the exception's own body without flattening it, which is what keeps the validation pipe's per-field array intact. Following Nest, `message` is a string for a single failure and an array of strings for a field list, so a client reading it must accept both. It also names two Prisma failures rather than letting them reach the 500 default: `P2025` (a row the write needed was not there) answers 404, `P2002` (a unique index) answers 409 naming the column that collided. Anything still answering 5xx is logged with its stack — the body deliberately carries no detail, so the log is the only place the cause survives
   - `is-positive.pipe.ts` — Validation pipe for positive number parameters
@@ -117,6 +118,8 @@ Interactive API documentation is served at `http://localhost:3030/api/docs`, wit
 
 The rest are optional:
 - `REDIS_URL` — Redis connection string; defaults to `redis://localhost:6379`, the compose service. Deliberately not on the required list: the cache fails open, so an unreachable Redis makes the Starter slower rather than unstartable (ADR-0005)
+- `CORS_ORIGIN` — Which origins a browser may call the API from, comma separated. Unset means only `http://localhost:3000`, the client a local clone starts. `*` passes through as itself. The client's own pages never need it — they call the API from the Next server
+- `TRUST_PROXY` — What Express should believe about `X-Forwarded-For`, and so what `@Ip()` returns and what login throttling counts. `false` unless set; a number of hops is the useful value. Wrong in either direction breaks throttling, in opposite ways — `docs/deployment.md` §4a
 - `API_DOCS` — `"true"` serves the docs, anything else withholds them. Unset means on everywhere but production
 - `NODE_ENV`, `PORT`
 
@@ -143,7 +146,7 @@ Next.js app (React 19) with Tailwind CSS, running on port 3000. It talks to the 
 - `src/app/catalogue/` — lists the catalogue (Demo)
 - `src/app/login/` — the sign-in form (Platform)
 
-CORS on the API still allows `http://localhost:3000` for anything that *does* call it from a browser — the docs page, another front end. It is hardcoded; #7 makes it env-driven.
+CORS on the API is `CORS_ORIGIN`, defaulting to `http://localhost:3000`. It matters only for callers that reach the API *from a browser* — the docs page, another front end — because the client's own pages call it from the Next server.
 
 ### Containers and deployment
 

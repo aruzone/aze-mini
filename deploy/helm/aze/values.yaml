@@ -27,6 +27,20 @@ api:
   # every route and are unauthenticated to read, hence off here.
   apiDocs: "false"
 
+  # Which origins a browser may call the API from, comma separated. The client
+  # this chart deploys does not need it — its server calls the API in-cluster —
+  # so this is for anything else of yours that calls the API from a browser.
+  # Empty means only the localhost default, which no deployment wants.
+  corsOrigin: ""
+
+  # What to believe about X-Forwarded-For. Login throttling counts failures per
+  # source address, and behind an Ingress every request arrives from the
+  # ingress controller — untrusted, every caller shares one bucket and one
+  # attacker locks out the lot. Set this to the number of proxies actually in
+  # front of the API. "1" is right for a single Ingress; count your mesh
+  # sidecars and load balancers if you have them.
+  trustProxy: "1"
+
 client:
   image:
     repository: ghcr.io/your-org/aze-client

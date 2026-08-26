@@ -85,6 +85,13 @@ services:
       JWT_SECRET: compose_local_jwt_secret_change_me
       API_KEY: compose_local_api_key_change_me
       API_DOCS: 'true'
+      # The client this file also runs. A deployment names its own origin
+      # instead of editing any code.
+      CORS_ORIGIN: http://localhost:3000
+      # Nothing proxies the API here, so X-Forwarded-For is not to be believed:
+      # trusting it would let any caller choose the address login throttling
+      # counts them under.
+      TRUST_PROXY: 'false'
     ports:
       - '127.0.0.1:${API_PORT:-3030}:3030'
     # The root route is public, so this needs no credential. Without a

@@ -11,7 +11,7 @@ your own thing on what is left.
 ## What this is, and what it is not
 
 It is a working Starter with the awkward parts already joined up — a login that
-issues a real token, a client that holds it safely, a cache with real
+issues a real token and throttles guesses at it, a client that holds it safely, a cache with real
 invalidation, migrations that run on deploy, images that build.
 
 It is **not production-ready**, and nothing here claims to be. It is a starting

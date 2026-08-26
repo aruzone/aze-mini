@@ -10,6 +10,8 @@ describe('appConfig', () => {
     delete process.env.NODE_ENV;
     delete process.env.API_DOCS;
     delete process.env.REDIS_URL;
+    delete process.env.CORS_ORIGIN;
+    delete process.env.TRUST_PROXY;
   });
 
   afterAll(() => {
@@ -27,6 +29,80 @@ describe('appConfig', () => {
       process.env.REDIS_URL = 'redis://cache.internal:6379';
 
       expect(appConfig().redisUrl).toBe('redis://cache.internal:6379');
+    });
+  });
+
+  // Hardcoded to localhost, the origin was wrong the moment anyone deployed,
+  // and wrong in a way only a code change could fix.
+  describe('corsOrigins', () => {
+    it('allows the client a local clone starts when nothing says otherwise', () => {
+      expect(appConfig().corsOrigins).toEqual(['http://localhost:3000']);
+    });
+
+    it('takes the origin from the environment', () => {
+      process.env.CORS_ORIGIN = 'https://app.example.com';
+
+      expect(appConfig().corsOrigins).toEqual(['https://app.example.com']);
+    });
+
+    // A front end and a docs page on separate hosts are two origins, and an
+    // Adopter should not have to choose one.
+    it('accepts several, separated by commas', () => {
+      process.env.CORS_ORIGIN = 'https://app.example.com, https://admin.example.com';
+
+      expect(appConfig().corsOrigins).toEqual([
+        'https://app.example.com',
+        'https://admin.example.com',
+      ]);
+    });
+
+    it('ignores the empty entries a trailing comma leaves', () => {
+      process.env.CORS_ORIGIN = 'https://app.example.com,,';
+
+      expect(appConfig().corsOrigins).toEqual(['https://app.example.com']);
+    });
+
+    // Set but blank is a compose file declaring the variable and leaving it
+    // empty, which must not mean "no origin at all".
+    it('falls back when the variable is set but blank', () => {
+      process.env.CORS_ORIGIN = '   ';
+
+      expect(appConfig().corsOrigins).toEqual(['http://localhost:3000']);
+    });
+
+    // The one value that cannot be a mistake to read literally: it means any
+    // origin, and the deployment checklist says what that costs.
+    it('passes a wildcard through as itself', () => {
+      process.env.CORS_ORIGIN = '*';
+
+      expect(appConfig().corsOrigins).toBe('*');
+    });
+  });
+
+  // Login is throttled per source address, and behind a proxy every request
+  // arrives from the proxy. Trusting the forwarding header fixes that and
+  // makes it spoofable, so it is a decision rather than a default.
+  describe('trustProxy', () => {
+    it('trusts nothing by default', () => {
+      expect(appConfig().trustProxy).toBe(false);
+    });
+
+    it('takes a hop count when given one', () => {
+      process.env.TRUST_PROXY = '1';
+
+      expect(appConfig().trustProxy).toBe(1);
+    });
+
+    it('takes a named or literal value as it stands', () => {
+      process.env.TRUST_PROXY = 'loopback';
+
+      expect(appConfig().trustProxy).toBe('loopback');
+    });
+
+    it('reads true as trusting the header outright', () => {
+      process.env.TRUST_PROXY = 'true';
+
+      expect(appConfig().trustProxy).toBe(true);
     });
   });
 
@@ -101,6 +177,40 @@ describe('appConfig', () => {
       });
     });
   });
+});
+
+describe('an optional variable nobody can act on', () => {
+  const original = process.env;
+
+  beforeEach(() => {
+    process.env = { ...original, DATABASE_URL: 'postgres://x', JWT_SECRET: 's', API_KEY: 'k' };
+    delete process.env.TRUST_PROXY;
+  });
+
+  afterAll(() => {
+    process.env = original;
+  });
+
+  it('is no problem when it is simply absent', () => {
+    expect(configurationProblems()).toEqual([]);
+  });
+
+  // Express throws on a `trust proxy` it cannot parse, from somewhere that
+  // names no variable. This is the one place that says which one is wrong.
+  it('names TRUST_PROXY when it holds something meaningless', () => {
+    process.env.TRUST_PROXY = 'yes please';
+
+    expect(configurationProblems()).toEqual([expect.stringContaining('TRUST_PROXY')]);
+  });
+
+  it.each(['1', '0', 'true', 'false', 'loopback', '10.0.0.0/8'])(
+    'accepts %s',
+    (value) => {
+      process.env.TRUST_PROXY = value;
+
+      expect(configurationProblems()).toEqual([]);
+    },
+  );
 });
 
 describe('configurationProblems', () => {

@@ -1,0 +1,39 @@
+# The staging overlay. Pass it over the base with:
+#   helm upgrade --install aze deploy/helm/aze -f deploy/helm/aze/values-staging.yaml ...
+# Only what differs from values.yaml lives here — Helm deep-merges the rest,
+# so every default still exists in exactly one place.
+#
+# Staging follows the branch your team merges to, so every merge becomes a
+# staging deployment (see the Argo Application beside this chart). That
+# looseness is the point of the environment; production is pinned instead.
+
+api:
+  # One replica: staging carries no traffic worth spreading. Raise it when
+  # yours does.
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  # The docs describe every route and need no credential to read — acceptable
+  # on staging where nothing real lives, never in production.
+  apiDocs: "true"
+
+client:
+  # Same reasoning as the API above: one replica on smaller resources.
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# A Secret you create out of band — sealed-secrets, external-secrets or your
+# cloud's store — holding DATABASE_URL, JWT_SECRET, API_KEY and optionally
+# REDIS_URL. Named differently from production's so the two environments can
+# never share credentials by accident.
+secrets:
+  existingSecret: aze-staging-secrets

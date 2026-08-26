@@ -191,7 +191,7 @@ nothing in the tree compiles.
 | Tool           | Role                                                                                                                                                                                               |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Helm           | `deploy/helm/aze` — two Deployments, two Services, a Secret and a pre-upgrade migration Job. Barebones and Demo; see [deploy/README.md](../deploy/README.md)                                       |
-| Argo CD        | `deploy/argocd/application.yaml` — one Application pointing at the chart                                                                                                                           |
+| Argo CD        | `deploy/argocd/` — two Applications pointing at the chart: staging tracks `main`, production pins a tag                                                                                             |
 | GitHub Actions | `.github/workflows/ci.yml` — `nx affected -t lint test build` on one job, the API e2e suite against real Postgres and Redis services on another. Reads no repository secrets, so it runs in a fork |
 
 Nx `build` for `aze-api` writes to `dist/apps/aze-api/`; `aze-client` builds to

@@ -71,7 +71,7 @@ that are _not_ held to that bar say so out loud.
 | Tests at three levels          | Unit tests, API end-to-end tests against a real database and cache, and browser end-to-end tests                                                                                                                            |
 | CI on every pull request       | Lint, test and build across affected projects, plus the API suite against real Postgres and Redis services. It reads no repository secrets, so it runs unchanged in a fork                                                  |
 | Containers                     | Multi-stage images for both apps, running as a non-root user, with a separate stage for migrations                                                                                                                          |
-| Deployment readiness           | A compose stack that migrates before it serves; a Helm chart with a pre-upgrade migration hook, readiness and liveness probes, secrets by reference and a read-only root filesystem; one Argo CD Application pointing at it |
+| Deployment readiness           | A compose stack that migrates before it serves; a Helm chart with a pre-upgrade migration hook, readiness and liveness probes, secrets by reference and a read-only root filesystem; Argo CD Applications for staging and production pointing at it |
 
 ## The stack
 

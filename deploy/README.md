@@ -9,7 +9,9 @@
 ```
 deploy/
   helm/aze/          The chart: API, client, and the migration job
-  argocd/            One Application pointing at that chart
+    values-staging.yaml     What staging changes about the base values
+    values-production.yaml  What production changes
+  argocd/            Two Applications: staging tracks main, production pins a tag
 ```
 
 Raw manifests are deliberately absent. A chart and the manifests it renders are
@@ -36,12 +38,31 @@ at the API's Service.
 
 ## Installing
 
-Secrets first, somewhere built to hold them, then the chart by reference:
+Two environments ship ready to use: **staging**, which follows development,
+and **production**, which is pinned. They are the same chart; each environment
+is a small overlay of deltas over `values.yaml`, so every default still exists
+in exactly one place.
+
+Secrets first, somewhere built to hold them — staging reads
+`aze-staging-secrets`, production reads `aze-secrets`, never each other's —
+then the chart by reference:
 
 ```bash
+# Staging: one replica, smaller resources, API docs served
 helm upgrade --install aze deploy/helm/aze \
-  --namespace aze --create-namespace \
-  --set secrets.existingSecret=aze-secrets \
+  -f deploy/helm/aze/values-staging.yaml \
+  --namespace aze-staging --create-namespace \
+  --set api.image.repository=ghcr.io/your-org/aze-api \
+  --set api.image.tag=v0.2.0 \
+  --set client.image.repository=ghcr.io/your-org/aze-client \
+  --set client.image.tag=v0.2.0 \
+  --set migrate.image.repository=ghcr.io/your-org/aze-migrate \
+  --set migrate.image.tag=v0.2.0
+
+# Production: two replicas of each app, API docs off
+helm upgrade --install aze deploy/helm/aze \
+  -f deploy/helm/aze/values-production.yaml \
+  --namespace aze-production --create-namespace \
   --set api.image.repository=ghcr.io/your-org/aze-api \
   --set api.image.tag=v0.2.0 \
   --set client.image.repository=ghcr.io/your-org/aze-client \
@@ -50,10 +71,24 @@ helm upgrade --install aze deploy/helm/aze \
   --set migrate.image.tag=v0.2.0
 ```
 
-The Secret it expects carries `DATABASE_URL`, `JWT_SECRET`, `API_KEY` and
-optionally `REDIS_URL`. The chart can render one from values instead, and says
-loudly that it should not: a value passed to Helm is kept in the release's own
-Secret in the cluster, in the clear, for every revision Helm retains.
+Each Secret carries `DATABASE_URL`, `JWT_SECRET`, `API_KEY` and optionally
+`REDIS_URL`. The chart can render one from values instead, and says loudly
+that it should not: a value passed to Helm is kept in the release's own Secret
+in the cluster, in the clear, for every revision Helm retains.
+
+## Promoting to production
+
+With Argo CD, staging needs no command: its Application tracks `main`, so a
+merge deploys by itself. Production's Application pins a tag instead — nothing
+reaches Users unless someone decided to promote it. Promotion is bumping that
+`targetRevision` once staging has seen the same build: a one-line Git change,
+visible and reviewable like any other.
+
+To adopt Argo CD, edit `repoURL` in both files under `argocd/` and
+`kubectl apply -f` them into the namespace Argo CD runs in. Automated sync
+with prune and selfHeal keeps each namespace equal to what Git says.
+Argo CD remains optional — the `helm upgrade` commands above deploy either
+environment without it.
 
 ## What this chart leaves to you
 

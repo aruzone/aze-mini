@@ -179,7 +179,7 @@ CORS on the API is `CORS_ORIGIN`, defaulting to `http://localhost:3000`. It matt
 - `apps/aze-api/Dockerfile` — multi-stage. `prisma generate` runs inside the image because the query engine's path is baked into the webpack bundle at build time, so generating on the host would ship the host's platform. The `migrator` stage keeps the build's full dependency tree, because the Prisma CLI is a devDependency the runtime image has no reason to carry
 - `apps/aze-client/Dockerfile` — multi-stage over Next's `output: 'standalone'`, so the runtime stage installs nothing
 - `docker-compose.yml` — Postgres, Redis, both apps, and a `migrate` service that applies migrations and exits. The API waits on it completing, so a fresh volume is migrated before anything reads from it
-- `deploy/` — a barebones Helm chart and one Argo CD Application, both Demo. `deploy/README.md` has the table of what the chart deliberately leaves to the Adopter
+- `deploy/` — a barebones Helm chart and two Argo CD Applications (staging tracks `main`, production pins a tag), both Demo. `deploy/README.md` has the table of what the chart deliberately leaves to the Adopter
 - Node is pinned in `.nvmrc`, `package.json` engines, the CI workflow **and both Dockerfiles** — change one and change all four
 
 ### Nx Workspace

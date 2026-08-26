@@ -1,0 +1,22 @@
+# The production overlay. Pass it over the base with:
+#   helm upgrade --install aze deploy/helm/aze -f deploy/helm/aze/values-production.yaml ...
+# Only what differs from values.yaml lives here — Helm deep-merges the rest,
+# so every default still exists in exactly one place.
+#
+# Production is pinned: the production Argo Application names a tag, and
+# promoting means bumping that tag after staging has seen the same build.
+
+api:
+  replicas: 2
+  # Explicit rather than inherited: the docs describe every route and are
+  # unauthenticated to read. Off here, always.
+  apiDocs: "false"
+
+client:
+  replicas: 2
+
+# A Secret you create out of band — sealed-secrets, external-secrets or your
+# cloud's store — holding DATABASE_URL, JWT_SECRET, API_KEY and optionally
+# REDIS_URL. Never shared with staging: separate credentials per environment.
+secrets:
+  existingSecret: aze-secrets

@@ -1,0 +1,59 @@
+# The staging Application, pointing at the chart in this repository.
+#
+# Demo — see docs/demo.md. Edit repoURL and the destination, then
+# `kubectl apply -f` this into the namespace Argo CD runs in.
+#
+# Staging deliberately tracks a branch: every merge to main becomes a staging
+# deployment without anyone pressing anything, which is what makes it the
+# development environment. That departs from the pin-a-tag rule the production
+# Application keeps — a branch here is a deployment someone asked for by
+# merging. See ADR-0004 — an Adopter owns what they are running; staging is
+# where they watch it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aze-staging
+  namespace: argocd
+  finalizers:
+    # Deleting the Application takes what it created with it. Drop this line
+    # if you would rather a deletion left the workloads running.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Yours, not this one.
+    repoURL: https://github.com/your-org/your-repo.git
+    targetRevision: main
+    path: deploy/helm/aze
+
+    helm:
+      valueFiles:
+        - values-staging.yaml
+      # Secrets do not belong in Git in any form. Create one out of band —
+      # sealed-secrets, external-secrets or your cloud's own store — named as
+      # the overlay's secrets.existingSecret expects.
+      parameters:
+        - name: api.image.repository
+          value: ghcr.io/your-org/aze-api
+        - name: client.image.repository
+          value: ghcr.io/your-org/aze-client
+        - name: migrate.image.repository
+          value: ghcr.io/your-org/aze-migrate
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aze-staging
+
+  syncPolicy:
+    automated:
+      # Argo removes what the chart stopped rendering, and puts back what was
+      # changed by hand in the cluster.
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The migration Job is a Helm pre-upgrade hook. Argo runs hooks as its
+      # own sync phases, and without this the completed Job from the previous
+      # sync blocks the next one.
+      - ApplyOutOfSyncOnly=true

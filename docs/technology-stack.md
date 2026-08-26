@@ -56,6 +56,7 @@ Node is pinned in **four** places that must move together: `.nvmrc`,
 | React                  | ^19.2   | UI rendering                                                                               |
 | React DOM              | ^19.2   | DOM renderer                                                                               |
 | Tailwind CSS           | ^4.2    | Utility-first CSS, configured from `src/app/global.css` — v4 needs no `tailwind.config.js` |
+| Design tokens          | —       | Colours, type scale and radii as `@theme` tokens in `src/app/global.css`, with a dark scheme redefining the colours under `prefers-color-scheme`. No toggle and no client-side theming |
 | `@tailwindcss/postcss` | ^4.2    | The only plugin in `apps/aze-client/postcss.config.js`                                     |
 | PostCSS                | ^8.5    | CSS transformation pipeline                                                                |
 

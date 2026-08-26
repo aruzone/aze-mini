@@ -1,6 +1,8 @@
 import { Product } from '@aze-mini/demo-contracts';
 import { Wire } from '@aze-mini/platform-contracts';
 import Link from 'next/link';
+import { logout } from '../actions';
+import { Shell } from '../../components/shell';
 import { apiFetch } from '../../lib/api';
 import { currentToken } from '../../lib/session';
 
@@ -15,31 +17,48 @@ export default async function CataloguePage() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <Link href="/" className="text-sm underline">
+    <Shell
+      action={
+        <form action={logout}>
+          <button
+            type="submit"
+            className="rounded-md border border-field px-3 py-1.5 text-sm font-medium hover:bg-surface"
+          >
+            Sign out
+          </button>
+        </form>
+      }
+    >
+      <Link href="/" className="text-sm text-accent underline underline-offset-4">
         ← Back
       </Link>
 
-      <h1 className="mt-4 text-2xl font-semibold">Catalogue</h1>
+      <h1 className="mt-4 text-display font-semibold">Catalogue</h1>
 
       {products.length === 0 ? (
-        <p className="mt-6 text-gray-600">
-          Nothing here yet. Run <code>npx prisma db seed</code> in{' '}
-          <code>apps/aze-api</code>.
+        <p className="mt-8 rounded-lg border border-border bg-raised p-6 text-sm text-muted">
+          Nothing here yet. Run{' '}
+          <code className="rounded-sm bg-surface px-1 py-0.5">npx prisma db seed</code> in{' '}
+          <code className="rounded-sm bg-surface px-1 py-0.5">apps/aze-api</code>.
         </p>
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-8 space-y-3">
           {products.map((product) => (
-            <li key={product.id} className="rounded-lg border p-4">
-              <h2 className="font-semibold">{product.name}</h2>
-              {product.description && (
-                <p className="mt-1 text-sm text-gray-600">{product.description}</p>
-              )}
-              <p className="mt-2 text-sm">{product.price}</p>
+            <li
+              key={product.id}
+              className="flex items-start justify-between gap-6 rounded-lg border border-border bg-raised p-5"
+            >
+              <div>
+                <h2 className="font-semibold">{product.name}</h2>
+                {product.description && (
+                  <p className="mt-1 text-sm text-muted">{product.description}</p>
+                )}
+              </div>
+              <p className="shrink-0 text-sm font-medium tabular-nums">{product.price}</p>
             </li>
           ))}
         </ul>
       )}
-    </main>
+    </Shell>
   );
 }

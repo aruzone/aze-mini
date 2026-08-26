@@ -1,7 +1,7 @@
 import { UserProfile, Wire } from '@aze-mini/platform-contracts';
-import Image from 'next/image';
 import Link from 'next/link';
 import { logout } from './actions';
+import { Shell } from '../components/shell';
 import { apiFetch } from '../lib/api';
 import { currentToken } from '../lib/session';
 
@@ -16,25 +16,36 @@ export default async function Index() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <Image src="/assets/aze-logo.png" alt="Aze" width={160} height={80} />
+    <Shell
+      action={
+        <form action={logout}>
+          <button
+            type="submit"
+            className="rounded-md border border-field px-3 py-1.5 text-sm font-medium hover:bg-surface"
+          >
+            Sign out
+          </button>
+        </form>
+      }
+    >
+      <h1 className="text-display font-semibold">Signed in as {user.name ?? user.email}</h1>
+      <p className="mt-2 text-sm text-muted">{user.email}</p>
 
-      <h1 className="mt-6 text-2xl font-semibold">
-        Signed in as {user.name ?? user.email}
-      </h1>
-      <p className="mt-1 text-sm text-gray-600">{user.email}</p>
-
-      <p className="mt-6">
-        <Link href="/catalogue" className="underline">
-          Browse the Demo catalogue
-        </Link>
-      </p>
-
-      <form action={logout} className="mt-8">
-        <button type="submit" className="rounded border px-3 py-1 text-sm">
-          Sign out
-        </button>
-      </form>
-    </main>
+      {/* No heading in here: `session.spec.ts` queries this page's heading
+          unqualified, and a second one fails Playwright's strict mode. */}
+      <div className="mt-8 rounded-lg border border-border bg-raised p-6">
+        <p className="text-sm text-muted">
+          A page reading the API from the server, with the session cookie the sign-in set.
+        </p>
+        <p className="mt-4">
+          <Link
+            href="/catalogue"
+            className="font-medium text-accent underline underline-offset-4"
+          >
+            Browse the Demo catalogue
+          </Link>
+        </p>
+      </div>
+    </Shell>
   );
 }

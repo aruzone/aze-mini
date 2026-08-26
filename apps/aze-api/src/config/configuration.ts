@@ -20,6 +20,61 @@ export const configurationProblems = (): string[] =>
     return [];
   });
 
+/** The client a local clone starts, and the only origin allowed until asked. */
+const DEFAULT_CORS_ORIGIN = 'http://localhost:3000';
+
+/**
+ * Which origins a browser may call the API from. Several are allowed, comma
+ * separated — a front end and a docs page on separate hosts are two origins.
+ *
+ * `*` passes through as itself: it is the one value that cannot be a mistake to
+ * read literally, and `docs/deployment.md` says what allowing it costs.
+ */
+const corsOrigins = (): string | string[] => {
+  const configured = process.env.CORS_ORIGIN?.trim();
+  if (!configured) {
+    return [DEFAULT_CORS_ORIGIN];
+  }
+  if (configured === '*') {
+    return '*';
+  }
+
+  const origins = configured
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  // A variable holding only commas said nothing, and answering with an empty
+  // list would refuse every origin including the local one.
+  return origins.length > 0 ? origins : [DEFAULT_CORS_ORIGIN];
+};
+
+/**
+ * What Express should believe about `X-Forwarded-For`. Login is throttled per
+ * source address, and behind a proxy every request arrives from the proxy —
+ * so untrusted, one bucket serves everyone and one attacker locks out the lot.
+ *
+ * Trusting it blindly is the opposite mistake: the header is caller-supplied,
+ * and an attacker who can set it has as many identities as they like. Hence a
+ * hop count — the number of proxies actually in front of this — rather than a
+ * boolean anyone would default to true.
+ */
+const trustProxy = (): boolean | number | string => {
+  const configured = process.env.TRUST_PROXY?.trim();
+  if (!configured) {
+    return false;
+  }
+  if (configured === 'true') {
+    return true;
+  }
+  if (configured === 'false') {
+    return false;
+  }
+
+  const hops = Number(configured);
+  return Number.isInteger(hops) && hops >= 0 ? hops : configured;
+};
+
 export const appConfig = () => {
   const environment = process.env.NODE_ENV || 'development';
 
@@ -39,6 +94,8 @@ export const appConfig = () => {
     // The docs describe every route and the shape of every body, which is a map
     // an Adopter may not want to publish. Off in production unless asked for,
     // on everywhere else unless refused.
+    corsOrigins: corsOrigins(),
+    trustProxy: trustProxy(),
     docsEnabled:
       process.env.API_DOCS === undefined
         ? environment !== 'production'

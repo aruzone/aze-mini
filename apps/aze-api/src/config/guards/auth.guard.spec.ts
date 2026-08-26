@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from '../../auth/auth.service';
+import { LoginAttempts } from '../../auth/login-attempts';
 import { UsersService } from '../../users/users.service';
 import { MachineToMachine } from '../decorators/machine-to-machine.decorator';
 import { Public } from '../decorators/public.decorator';
@@ -58,6 +59,7 @@ describe('AuthGuard', () => {
       providers: [
         AuthGuard,
         AuthService,
+        LoginAttempts,
         Reflector,
         { provide: UsersService, useValue: { findUserByEmail: jest.fn() } },
       ],

@@ -49,22 +49,41 @@ holding real Users it probably is — shorten the expiry, add a refresh token,
 and put a revocation check somewhere. Decide this before launch, not after an
 incident.
 
-### 4. Set the CORS origin
+### 4. Name your own CORS origin
 
-`apps/aze-api/src/main.ts` hardcodes `http://localhost:3000`:
+`CORS_ORIGIN` is read from the environment. Unset, only `http://localhost:3000`
+— the client a local clone starts — is allowed, which is right locally and wrong
+everywhere else. Several are allowed, comma separated:
 
-```ts
-app.enableCors({ origin: 'http://localhost:3000', ... });
+```
+CORS_ORIGIN="https://app.example.com,https://admin.example.com"
 ```
 
-Deployed, that is wrong in both directions: it names an origin that is not yours,
-and it needs a code change to fix. Make it an environment variable before you
-deploy.
+`*` is passed through as itself and allows every origin. Combined with
+`credentials: true` a browser will refuse the combination outright, so it is
+rarely what anyone wants — and it means any page anywhere can make a User's
+browser call your API.
 
 Note what does *and does not* depend on this. The client's own pages call the API
 from the Next **server**, not the browser, so they are unaffected by CORS
 entirely. This matters for anything else that calls the API from a browser —
 another front end, the interactive docs page, a mobile web view.
+
+### 4a. Tell the API what is in front of it
+
+`TRUST_PROXY` decides whether `X-Forwarded-For` is believed, and it is `false` by
+default. That default is right when nothing proxies the API and wrong the moment
+something does:
+
+- **Untrusted behind a proxy** — every request appears to come from the proxy, so
+  login throttling counts the whole world in one bucket and one attacker locks
+  everybody out.
+- **Trusted with nothing in front** — the header is caller-supplied, so an
+  attacker picks a fresh address per request and is never throttled at all.
+
+Set it to the number of proxies actually in front of the API — `1` for a single
+Ingress or load balancer. The Helm chart defaults to `1` for that reason; count
+your own hops if you have more.
 
 ### 5. Decide about the API documentation
 
@@ -100,9 +119,17 @@ Nothing here backs anything up.
 - `POST /products` uses an API key instead, via `@MachineToMachine()`.
 - **Registration is open.** Anyone who can reach `/auth/register` can create a
   User. If that is not what you want, that is your change to make.
-- **There is no rate limiting anywhere.** Login included. Nothing slows down a
-  password-guessing loop.
-- **There are no security headers.** No HSTS, no CSP, no `X-Frame-Options`.
+- **Failed sign-ins are throttled; nothing else is.** Registration, and every
+  other route, can be called as fast as a caller likes. A general rate limit is
+  still yours to add.
+- **The throttle counts in one process.** Two replicas mean two counts, so an
+  attacker spread across them gets twice the attempts. Moving the counts to
+  Redis is the fix — and note that it must *not* inherit the cache's fail-open
+  policy (ADR-0005), or an attacker disables the limiter by taking Redis down.
+  `apps/aze-api/src/auth/login-attempts.ts` says the same thing where it lives.
+- **The client's CSP is partial.** `frame-ancestors`, `base-uri` and `object-src`
+  are set; a `script-src` worth having needs a per-request nonce threaded
+  through the App Router, which is left to you.
 
 ### 9. Run it as a non-root user with a read-only root
 
@@ -119,9 +146,11 @@ images, keep that.
 | Tokens signed, expiry enforced | ✅ 1 day |
 | Token revocation | ❌ none |
 | Refresh tokens | ❌ none |
-| Login rate limiting | ❌ none |
-| Security headers | ❌ none |
-| CORS origin configurable | ❌ hardcoded to localhost |
+| Login rate limiting | ✅ per source and User, in-process only |
+| Rate limiting elsewhere | ❌ none |
+| Security headers | ✅ both apps; client CSP is partial |
+| CORS origin configurable | ✅ `CORS_ORIGIN` |
+| Proxy awareness | ⚠️ `TRUST_PROXY`, and you must set it |
 | Secrets by reference in the chart | ✅ |
 | TLS / Ingress | ❌ yours to write |
 | Database backups | ❌ yours to arrange |

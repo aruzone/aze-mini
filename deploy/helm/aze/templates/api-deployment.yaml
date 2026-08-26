@@ -36,6 +36,12 @@ spec:
               value: "3030"
             - name: API_DOCS
               value: {{ .Values.api.apiDocs | quote }}
+            - name: TRUST_PROXY
+              value: {{ .Values.api.trustProxy | quote }}
+            {{- with .Values.api.corsOrigin }}
+            - name: CORS_ORIGIN
+              value: {{ . | quote }}
+            {{- end }}
           # Every secret arrives by reference. Nothing here renders a value,
           # so nothing here can leak one into `helm template` output or a
           # cluster's release history.

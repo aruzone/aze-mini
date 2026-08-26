@@ -3,8 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
+import { LoginAttempts } from './login-attempts';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+
+/** Who is asking. Each case here is one caller, so one address will do. */
+const SOURCE = '203.0.113.7';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -25,6 +29,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        LoginAttempts,
       ],
     }).compile();
 
@@ -121,10 +126,10 @@ describe('AuthService', () => {
         password: await hash('correct horse', 10),
       });
 
-      const result = await service.authenticate({
-        email: 'ada@example.com',
-        password: 'correct horse',
-      });
+      const result = await service.authenticate(
+        { email: 'ada@example.com', password: 'correct horse' },
+        SOURCE,
+      );
 
       expect(result).toEqual({
         userId: 'user-1',
@@ -141,7 +146,7 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.authenticate({ email: 'ada@example.com', password: 'correct horse' }),
+        service.authenticate({ email: 'ada@example.com', password: 'correct horse' }, SOURCE),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -149,7 +154,7 @@ describe('AuthService', () => {
       mockUsersService.findUserByEmail.mockResolvedValue(null);
 
       await expect(
-        service.authenticate({ email: 'nobody@example.com', password: 'correct horse' }),
+        service.authenticate({ email: 'nobody@example.com', password: 'correct horse' }, SOURCE),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -164,12 +169,12 @@ describe('AuthService', () => {
 
       mockUsersService.findUserByEmail.mockResolvedValue(registered);
       await expect(
-        service.authenticate({ email: 'ada@example.com' } as never),
+        service.authenticate({ email: 'ada@example.com' } as never, SOURCE),
       ).rejects.toThrow(BadRequestException);
 
       mockUsersService.findUserByEmail.mockResolvedValue(null);
       await expect(
-        service.authenticate({ email: 'nobody@example.com' } as never),
+        service.authenticate({ email: 'nobody@example.com' } as never, SOURCE),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -180,10 +185,10 @@ describe('AuthService', () => {
         password: await hash('correct horse', 10),
       });
 
-      const result = await service.authenticate({
-        email: ' Ada@Example.COM ',
-        password: 'correct horse',
-      });
+      const result = await service.authenticate(
+        { email: ' Ada@Example.COM ', password: 'correct horse' },
+        SOURCE,
+      );
 
       expect(mockUsersService.findUserByEmail).toHaveBeenCalledWith('ada@example.com');
       expect(result).toMatchObject({ userId: 'user-1' });

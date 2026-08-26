@@ -14,6 +14,7 @@ import {
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { LoginAttempts } from './login-attempts';
 import { MAX_PASSWORD_BYTES, hashPassword } from './password';
 import { TokenClaims } from './token-claims';
 
@@ -45,6 +46,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly attempts: LoginAttempts,
   ) {}
 
   async register(registerInput: RegisterDto): Promise<AuthResponse> {
@@ -82,11 +84,23 @@ export class AuthService {
     }
   }
 
-  async authenticate(authInput: LoginDto): Promise<AuthResponse | null> {
+  /**
+   * `source` is who is asking — the caller's address. Guessing a password is
+   * cheap and unlimited otherwise, and nothing else here would notice.
+   */
+  async authenticate(authInput: LoginDto, source: string): Promise<AuthResponse> {
+    // Normalized first, so the count follows the User rather than the spelling
+    // — otherwise five guesses at ADA@ and five more at ada@ are ten.
+    const email = normalizeEmail(authInput.email);
+    this.attempts.refuseIfExhausted(source, email);
+
     const user = await this.validateUser(authInput);
     if (!user) {
+      this.attempts.recordFailure(source, email);
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    this.attempts.succeeded(source, email);
     return this.login(user);
   }
 

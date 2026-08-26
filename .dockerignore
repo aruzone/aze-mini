@@ -1,0 +1,17 @@
+# Everything installed, built or generated is remade inside the image. Copying
+# a host build in would ship the host's platform: the Prisma query engine is
+# platform-specific and gets baked into the API bundle at build time.
+node_modules
+**/node_modules
+dist
+tmp
+.nx
+.git
+**/.next
+apps/aze-api/generated
+apps/aze-api/.env
+**/.env
+**/.env.local
+coverage
+test-output
+.github

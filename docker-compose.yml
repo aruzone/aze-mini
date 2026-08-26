@@ -48,5 +48,95 @@ services:
       timeout: 5s
       retries: 10
 
+  # Applies the committed migrations and exits. The API waits on it completing
+  # successfully, so a fresh volume is migrated before anything reads from it
+  # and `docker compose up` needs no second command. `deploy`, not `dev`: it
+  # never writes a migration, so a schema change nobody migrated fails here
+  # rather than being invented at startup.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/aze-api/Dockerfile
+      # Not the runtime image: the Prisma CLI is a development dependency the
+      # runtime image deliberately does not carry. See apps/aze-api/Dockerfile.
+      target: migrator
+    environment:
+      DATABASE_URL: postgresql://aze:aze_local_password@postgres:5432/aze?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/aze-api/Dockerfile
+    restart: unless-stopped
+    environment:
+      # The service names above, not localhost: inside the compose network each
+      # container is its own localhost.
+      DATABASE_URL: postgresql://aze:aze_local_password@postgres:5432/aze?schema=public
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      # Local development only, and public — this file is committed. The API
+      # refuses to start while either still holds its .env.example placeholder,
+      # so these are real values rather than the your_..._here shape. Replace
+      # both before running this anywhere but your own machine.
+      JWT_SECRET: compose_local_jwt_secret_change_me
+      API_KEY: compose_local_api_key_change_me
+      API_DOCS: 'true'
+    ports:
+      - '127.0.0.1:${API_PORT:-3030}:3030'
+    # The root route is public, so this needs no credential. Without a
+    # healthcheck `docker compose up --wait` would return as soon as the
+    # process existed, which is well before it answers.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3030/api').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  client:
+    build:
+      context: .
+      dockerfile: apps/aze-client/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Read by the Next server, which is what calls the API — so this is the
+      # compose service name and not something a browser has to resolve.
+      AZE_API_URL: http://api:3030/api
+    ports:
+      - '127.0.0.1:${CLIENT_PORT:-3000}:3000'
+    # /login is the one page that renders without a session.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/login').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres-data:

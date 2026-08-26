@@ -1,0 +1,94 @@
+# Barebones. Read every value here before deploying anything — see
+# deploy/README.md for what this chart deliberately does not do.
+
+nameOverride: ""
+
+# Both images are built from this repository: apps/aze-api/Dockerfile and
+# apps/aze-client/Dockerfile. Push them somewhere your cluster can pull from
+# and name that registry here. `tag` falls back to the chart's appVersion; set
+# `digest` instead to pin a build exactly, which is what a promotion pipeline
+# should do.
+api:
+  image:
+    repository: ghcr.io/your-org/aze-api
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicas: 2
+  service:
+    port: 3030
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  # Only the exact string "true" serves the interactive docs. They describe
+  # every route and are unauthenticated to read, hence off here.
+  apiDocs: "false"
+
+client:
+  image:
+    repository: ghcr.io/your-org/aze-client
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicas: 2
+  service:
+    port: 3000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# The job that applies migrations before the API starts, as a Helm hook. It
+# runs the `migrator` stage of apps/aze-api/Dockerfile, which carries the
+# Prisma CLI the runtime image does not.
+migrate:
+  enabled: true
+  image:
+    repository: ghcr.io/your-org/aze-migrate
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+
+# No Ingress is rendered either: controller, class, annotations and TLS issuer
+# vary too much between clusters for a guess to be worth more than the few
+# minutes it takes to write your own. deploy/README.md has the whole list.
+
+# Where the API's environment comes from.
+#
+# Postgres and Redis are deliberately not rendered by this chart. A database
+# belongs to a managed service or an operator that understands backups,
+# failover and upgrades — none of which a Deployment in here would do, and a
+# barebones one would be trusted anyway. docker-compose.yml is where the local
+# versions live, so the URLs below point at whatever your cluster actually runs.
+#
+# redisUrl is optional: the cache fails open, so an unreachable Redis costs the
+# API speed and nothing else (ADR-0005).
+secrets:
+  # Set this to a Secret you manage elsewhere — sealed-secrets,
+  # external-secrets, your cloud's secret store — and nothing below is
+  # rendered or read. That is the only arrangement here fit for production:
+  # values passed with --set land in Helm's release history in the cluster.
+  existingSecret: ""
+
+  # Used only when existingSecret is empty. Never commit real values here.
+  databaseUrl: ""
+  redisUrl: ""
+  jwtSecret: ""
+  apiKey: ""
+
+# Applied to every pod the chart renders, including the migration job.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

@@ -1,0 +1,21 @@
+{{ include "aze.fullname" . }} is installed.
+
+  API     {{ include "aze.fullname" . }}-api:{{ .Values.api.service.port }}
+  Client  {{ include "aze.fullname" . }}-client:{{ .Values.client.service.port }}
+
+Neither is reachable from outside the cluster: this chart renders no Ingress.
+Have a look with
+
+  kubectl port-forward svc/{{ include "aze.fullname" . }}-client {{ .Values.client.service.port }}:{{ .Values.client.service.port }}
+
+THIS CHART IS BAREBONES AND DEMO. It shows the shape of a deployment; it has
+not been reviewed for yours. Before it carries anything real, read
+deploy/README.md — it lists what the chart leaves to you, starting with the
+Ingress, TLS, the database, and where your secrets come from.
+{{- if not .Values.secrets.existingSecret }}
+
+You are using chart values for secrets. Values passed to Helm are kept in the
+release's own Secret in the cluster, in the clear, for every revision it
+retains. Set `secrets.existingSecret` and manage them somewhere that was built
+to hold them.
+{{- end }}

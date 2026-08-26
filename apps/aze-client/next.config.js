@@ -10,6 +10,11 @@ const nextConfig = {
   // Use this to set Nx-specific options
   // See: https://nx.dev/recipes/next/next-config-setup
   nx: {},
+
+  // A self-contained server plus only the node_modules it actually reaches,
+  // so the runtime image carries no npm install of its own. See
+  // apps/aze-client/Dockerfile.
+  output: 'standalone',
 };
 
 const plugins = [

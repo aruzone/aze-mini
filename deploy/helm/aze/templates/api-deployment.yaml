@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aze.fullname" . }}-api
+  labels:
+    {{- include "aze.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aze.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "aze.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "aze.image" (list .Values.api.image .Chart.AppVersion) }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 3030
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3030"
+            - name: API_DOCS
+              value: {{ .Values.api.apiDocs | quote }}
+          # Every secret arrives by reference. Nothing here renders a value,
+          # so nothing here can leak one into `helm template` output or a
+          # cluster's release history.
+          envFrom:
+            - secretRef:
+                name: {{ include "aze.secretName" . }}
+          # The root route is public by design (@Public), so a probe needs no
+          # credential to reach it.
+          readinessProbe:
+            httpGet:
+              path: /api
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      # readOnlyRootFilesystem is on, and Node still wants somewhere to write.
+      volumes:
+        - name: tmp
+          emptyDir: {}

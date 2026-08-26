@@ -2,7 +2,15 @@
   "name": "@aze-mini/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "dev": "nx run-many -t serve dev --projects aze-api,aze-client",
+    "build": "nx run-many -t build --all",
+    "test": "nx run-many -t test --all",
+    "lint": "nx run-many -t lint --all",
+    "e2e:api": "nx e2e aze-api-e2e",
+    "e2e:client": "nx e2e aze-client-e2e",
+    "check:docs": "node tools/check-docs.mjs"
+  },
   "private": true,
   "engines": {
     "node": ">=24 <25"

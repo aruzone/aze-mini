@@ -26,6 +26,12 @@ jobs:
 
       - run: npm ci
 
+      # Documents that describe code drift away from it silently. This fails
+      # when one names a missing file, points at a line number, or describes a
+      # route the API does not serve. It needs nothing built, so it runs first.
+      - name: Check the documentation against the code
+        run: npm run check:docs
+
       # apps/aze-api/generated/prisma is not committed, and the API imports
       # from it — without this the build cannot resolve the client.
       - name: Generate the Prisma client

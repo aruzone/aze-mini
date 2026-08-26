@@ -47,14 +47,14 @@ The order to work in and how to check the result are at the bottom, under **Doin
 
 ## Documentation that describes the Demo
 
-These do not break anything if left, but they will describe models and routes that no longer exist.
+`docs/interfaces.md` is held to the controllers by `npm run check:docs`, so it fails while the catalogue rows remain and the routes are gone — that check is your list of what is left to remove. The rest are prose: nothing breaks if they are left, but they will describe models and routes that no longer exist.
 
 | Where | What describes the Demo |
 | --- | --- |
 | `docs/interfaces.md` | The catalogue endpoints, in detail |
 | `docs/data-contracts.md` | The `Product`, `ProductCategory`, `Review` and `Tag` entities, and the controller table |
 | `docs/architecture-overview.md` | The `src/product/` feature group |
-| `CLAUDE.md` | The `src/product/` bullet, the Demo tier note, and `npx prisma db seed` in the setup and Prisma sections |
+| `AGENTS.md` | The `src/product/` bullet, the Demo tier note, and `npx prisma db seed` in the setup and Prisma sections |
 | `README.md` | Whatever it says about the catalogue |
 
 ## The Demo User
@@ -71,6 +71,7 @@ tables while code still selects from them fails in the least helpful way.
 1. **Delete the paths** in the first table.
 2. **Make the edits** in the second. `nx run-many -t lint build --all` will name
    anything you missed; every one of them is an import that no longer resolves.
+   `npm run check:docs` does the same for the documentation.
 3. **Drop the models.** Remove `Product`, `ProductCategory`, `Review` and `Tag`
    from `prisma/schema.prisma`, keep `User`, then `npx prisma migrate dev --name
    remove-demo`. Check the generated SQL before you apply it anywhere that

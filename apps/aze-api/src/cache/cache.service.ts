@@ -1,6 +1,7 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
+import type { HealthCheckStatus } from '@aze-mini/platform-contracts';
 
 /**
  * How long any one cache operation is given before the request stops waiting
@@ -41,6 +42,23 @@ export class CacheService {
 
   async del(key: string): Promise<void> {
     await this.attempt('invalidation', key, () => this.cache.del(key));
+  }
+
+  /**
+   * What readiness reports about the cache. Deliberately not one of the
+   * `attempt` paths: a health probe must observe Redis directly — through the
+   * same 250ms deadline, since a cache that accepts the socket and stops
+   * answering is exactly the failure readiness exists to name — but it is not
+   * traffic the five-second cooldown exists to protect, so it neither marks
+   * the cooldown nor honours one. It answers, it never raises: ADR-0005.
+   */
+  async check(): Promise<HealthCheckStatus> {
+    try {
+      await withinDeadline(this.cache.get('__health__'));
+      return 'up';
+    } catch {
+      return 'down';
+    }
   }
 
   private async attempt<T>(

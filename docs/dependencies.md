@@ -48,6 +48,14 @@ For the same picture grouped by layer rather than by package, see
 | `@keyv/redis`           | ^5.1.6  | Redis store, configured to fail fast rather than queue ([ADR-0005](adr/0005-redis-cache-fails-open.md)) |
 | `keyv`                  | ^5.6.0  | Store interface `cache-manager` speaks                                                                  |
 
+### Observability
+
+| Package       | Version | Purpose                                                                                          |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `nestjs-pino` | ^4.6.1  | Nest binding for the request logger; the whole convention lives in `src/config/logging.ts`        |
+| `pino`        | ^10.3.1 | The logger itself — JSON to stdout, redacting credentials, one line per request                   |
+| `prom-client` | ^15.1.3 | The metrics registry behind `GET /api/metrics`, opt-in through `METRICS_ENABLED` ([ADR-0008](adr/0008-pino-logging-opt-in-metrics-and-a-named-error-hook.md)) |
+
 ### Security and validation
 
 | Package             | Version | Purpose                                                                                                |

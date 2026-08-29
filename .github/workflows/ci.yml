@@ -87,6 +87,9 @@ jobs:
       # the e2e suite offers API_KEY to the machine-to-machine route.
       JWT_SECRET: ci-not-a-real-secret
       API_KEY: ci-not-a-real-key
+      # The metrics spec asserts the Prometheus endpoint answers; the API
+      # refuses nothing without it, so this only turns the endpoint on.
+      METRICS_ENABLED: "true"
 
     steps:
       - uses: actions/checkout@v4

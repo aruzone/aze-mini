@@ -90,6 +90,19 @@ speed and nothing else.
 
 ---
 
+## Observability
+
+| Technology   | Version | Role                                                                                          |
+| ------------ | ------- | --------------------------------------------------------------------------------------------- |
+| pino         | ^10     | Structured JSON logging, one line per request, credentials redacted ([ADR-0008](adr/0008-pino-logging-opt-in-metrics-and-a-named-error-hook.md)) |
+| `nestjs-pino`| ^4.6    | Nest binding; `app.useLogger` routes Nest's own lines into the same JSON stream                |
+| `prom-client`| ^15.1   | The metrics registry behind the opt-in `GET /api/metrics`                                      |
+
+`LOG_LEVEL` tunes the logs; the health routes live in `src/app/health.controller.ts`,
+and the error-tracking hook point is the 5xx branch of the exception filter.
+
+---
+
 ## Security and Validation
 
 | Technology          | Version | Role                                                                                                           |

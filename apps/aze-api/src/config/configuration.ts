@@ -37,8 +37,17 @@ const optionalVariableProblems = (): string[] => {
     );
   }
 
+  const level = process.env.LOG_LEVEL?.trim();
+  if (level && !(LOG_LEVELS as readonly string[]).includes(level)) {
+    problems.push(
+      `LOG_LEVEL is "${level}", which is not one of: ${LOG_LEVELS.join(', ')}. See apps/aze-api/.env.example.`,
+    );
+  }
+
   return problems;
 };
+
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const;
 
 const TRUST_PROXY_NAMES = ['true', 'false', 'loopback', 'linklocal', 'uniquelocal'];
 
@@ -135,5 +144,13 @@ export const appConfig = () => {
       process.env.API_DOCS === undefined
         ? environment !== 'production'
         : process.env.API_DOCS === 'true',
+    // Structured logs go to stdout as JSON; this only decides how much of
+    // them. Validated above, so a typo says so at startup instead of logging
+    // everything at the default and looking broken.
+    logLevel: process.env.LOG_LEVEL?.trim() || 'info',
+    // The metrics endpoint names routes and carries process internals, so it
+    // is opt-in like API_DOCS rather than on by default: unset means off,
+    // and the exact string "true" turns it on.
+    metricsEnabled: process.env.METRICS_ENABLED === 'true',
   };
 };

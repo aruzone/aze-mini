@@ -138,20 +138,33 @@ Nothing here backs anything up.
 All three images already do — the API, the client, and the `migrator` stage the
 migration job runs — and the chart sets `readOnlyRootFilesystem` on every
 workload, including the job that holds `DATABASE_URL`. If you change the
+
 images, keep that.
+
+### 10. Observe it
+
+The fork you deploy ships with the observability it needs on day one, spelled out in the places it lives:
+
+- **Logs are JSON.** Every request logs one structured line under a `requestId` echoed as `X-Request-Id` — the same id the exception filter puts on the log of any 5xx it answers. `authorization`, `x-api-key` and `cookie` headers are redacted by the logger, not trusted to each log call. `LOG_LEVEL` (optional, default `info`) decides how much; a value that is none of pino's levels is refused at startup. The wiring is `apps/aze-api/src/config/logging.ts` and nowhere else.
+- **Probes exist.** `GET /api/health/live` answers whenever the process is up. `GET /api/health/ready` answers 200 only while Postgres answers a `SELECT 1`; the cache is reported in the body but never gates readiness, because it fails open ([ADR-0005](adr/0005-redis-cache-fails-open.md)) and a deployment without its cache still serves. The Helm chart does not wire them to anything yet — [deploy/README.md](../deploy/README.md) has what it leaves to you.
+- **Metrics are opt-in.** `GET /api/metrics` serves the Prometheus exposition once `METRICS_ENABLED=true`, and refuses with 404 until then. It names routes and carries process internals, so it is off by default the way `API_DOCS` is; turn it on for the thing that scrapes it.
+- **Error tracking has one hook point.** The 5xx branch of `apps/aze-api/src/config/filter/api-exception.filter.ts` is where every unexplained failure passes through and the last place the cause exists. Adding `Sentry.captureException` — or anything else — there is the whole integration.
 
 ## The short version
 
 | | State |
 | --- | --- |
-| Passwords hashed | ✅ bcryptjs (ADR-0003) |
 | Tokens signed, expiry enforced | ✅ 1 day |
 | Token revocation | ❌ none |
 | Refresh tokens | ❌ none |
 | Login rate limiting | ✅ per source and User, in-process only |
 | Rate limiting elsewhere | ❌ none |
 | Security headers | ✅ both apps; client CSP is partial |
-| CORS origin configurable | ✅ `CORS_ORIGIN` |
+| Security headers | ✅ both apps; client CSP is partial |
+| Structured logs | ✅ pino, JSON with `requestId` — `LOG_LEVEL` tunes it |
+| Readiness / liveness probes | ✅ `/api/health/live`, `/api/health/ready` |
+| Metrics endpoint | ⚠️ opt-in — `METRICS_ENABLED=true` |
+| Error tracking | ⚠️ a named hook point in the exception filter; bring your own |
 | Proxy awareness | ⚠️ `TRUST_PROXY`, and you must set it |
 | Secrets by reference in the chart | ✅ |
 | TLS / Ingress | ❌ yours to write |

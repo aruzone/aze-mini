@@ -101,4 +101,22 @@ describe('CacheService', () => {
       );
     });
   });
+
+  // Readiness reports the cache but never gates on it (ADR-0005): a deployment
+  // without its cache still serves. The check therefore answers, it never
+  // raises, and it stays out of the failure cooldown — a probe is not traffic
+  // the five-second rest exists to protect.
+  describe('check, which readiness reports but never gates on', () => {
+    it('answers up when the store answers', async () => {
+      mockCache.get.mockResolvedValue(undefined);
+
+      await expect(service.check()).resolves.toBe('up');
+    });
+
+    it('answers down instead of raising when the store fails', async () => {
+      mockCache.get.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:6379'));
+
+      await expect(service.check()).resolves.toBe('down');
+    });
+  });
 });

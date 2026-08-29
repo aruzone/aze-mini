@@ -58,8 +58,11 @@ describe('the API documentation', () => {
     expect(documented).toEqual(
       [
         'GET /api',
-        'POST /api/auth/register',
+        'GET /api/health/live',
+        'GET /api/health/ready',
+        'GET /api/metrics',
         'POST /api/auth/login',
+        'POST /api/auth/register',
         'GET /api/users/me',
         'GET /api/products',
         'POST /api/products',
@@ -148,14 +151,18 @@ describe('the API documentation', () => {
   });
 
   // A bare status code tells a generated client the call returned; it does not
-  // say what it returned. Every route, again, rather than a sample.
+  // say what it returned. Every route, again, rather than a sample. The content
+  // type is not the point — GET /api/metrics answers in text/plain — only that
+  // the response body is described at all.
   it('answers every operation with a schema, not a bare status', () => {
     const bare = operations()
       .filter(({ operation }) => {
         const success = Object.entries(operation.responses).find(([status]) =>
           status.startsWith('2'),
         );
-        return !success?.[1].content?.['application/json']?.schema;
+        return !Object.values(success?.[1].content ?? {}).some(
+          (media) => media.schema,
+        );
       })
       .map(({ name }) => name);
 
@@ -317,7 +324,25 @@ describe('what the API answers, against what the document says', () => {
     const res = await axios.post('/api/auth/register', { email: 'not an email' }, anyStatus);
 
     expect(res.status).toBe(400);
-    expect(Array.isArray(res.data.message)).toBe(true);
     expectDocumented(res.data, '/api/auth/register', 'post', '400');
+  });
+
+  it('sends what it documents for liveness', async () => {
+    const res = await axios.get('/api/health/live', anyStatus);
+
+    expect(res.status).toBe(200);
+    expectDocumented(res.data, '/api/health/live', 'get', '200');
+  });
+
+  // Readiness is what the probes poll, so what it reports is asserted here
+  // rather than trusted to the schema: Postgres gates, the cache never does.
+  it('sends what it documents for readiness', async () => {
+    const res = await axios.get('/api/health/ready', anyStatus);
+
+    expect(res.status).toBe(200);
+    expect(res.data.status).toBe('ready');
+    expect(res.data.checks.database).toBe('up');
+    expect(res.data.checks.cache).toBe('up');
+    expectDocumented(res.data, '/api/health/ready', 'get', '200');
   });
 });

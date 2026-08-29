@@ -5,8 +5,8 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import {
   PrismaClientKnownRequestError,
   PrismaClientValidationError,
@@ -76,7 +76,9 @@ function answerForPrisma(exception: PrismaClientKnownRequestError): Answer | und
 
 @Catch()
 export class ApiExceptionFilter<T> implements ExceptionFilter {
-  private readonly logger = new Logger(ApiExceptionFilter.name);
+  constructor(private readonly logger: PinoLogger) {
+    this.logger.setContext(ApiExceptionFilter.name);
+  }
 
   catch(exception: T, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -103,13 +105,19 @@ export class ApiExceptionFilter<T> implements ExceptionFilter {
       httpStatus = exception.getStatus();
       errorMessage = readableMessage(exception.getResponse(), exception.message);
     }
-
-    // A 500 tells the caller nothing, by design. Whoever runs the API needs the
-    // cause, and the filter is the last place it exists.
+    // A 500 tells the caller nothing, by design. Whoever runs the API needs
+    // the cause, and the filter is the last place it exists.
     if (httpStatus >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      // THE error-tracking hook point (docs/deployment.md §10). An Adopter
+      // adds Sentry.captureException(exception, { extra: { requestId } })
+      // here and nothing else changes: this is the one place every 5xx
+      // passes through, and the log line below still carries the stack.
       this.logger.error(
+        {
+          reqId: (request as { id?: string }).id,
+          err: exception instanceof Error ? exception : new Error(String(exception)),
+        },
         `${request.method} ${request.url} failed`,
-        exception instanceof Error ? exception.stack : String(exception),
       );
     }
 

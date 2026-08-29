@@ -35,8 +35,10 @@ Every route the API serves is listed in [interfaces.md](interfaces.md), which `n
 | Reviews     | `src/product/review/`           | Demo: product reviews (one-to-many with Product)                                                                                                                                         |
 | Tags        | `src/product/tag/`              | Demo: product tags (many-to-many with Product)                                                                                                                                           |
 | Cache       | `src/cache/`                    | `CacheService` over Redis, failing open on every call (ADR-0005)                                                                                                                         |
+| Metrics     | `src/metrics/`                  | The opt-in `GET /api/metrics` — a Prometheus registry, an HTTP duration histogram recorded on response finish, all of it silent until `METRICS_ENABLED=true`                              |
+| Health      | `src/app/health.controller.ts`  | `GET /api/health/live` and `GET /api/health/ready`: liveness consults nothing, readiness gates on Postgres and reports the cache without gating on it ([ADR-0008](adr/0008-pino-logging-opt-in-metrics-and-a-named-error-hook.md)) |
 | Database    | `src/database/`                 | `DatabaseService` extends `PrismaClient`, connects on module init; names the Prisma error codes the API answers for, and counts referencing rows before a delete                         |
-| Config      | `src/config/`                   | Configuration reading, guards, decorators, pipes, security headers, the OpenAPI document, and the exception filter                                                                       |
+| Config      | `src/config/`                   | Configuration reading, guards, decorators, pipes, security headers, the logging convention, the OpenAPI document, and the exception filter                                               |
 
 ### Shared contracts (`libs/`)
 
@@ -70,14 +72,15 @@ Both are plain types depending on nothing, so either application can declare its
 ### Backend Startup
 
 1. `configurationProblems()` names every missing or placeholder environment variable at once; if there are any, `main.ts` logs them all and exits before Prisma connects
-2. `NestFactory.create(AppModule)` builds the application; `AppModule` loads `ConfigModule` (global), `CacheModule` (global), `DatabaseModule`, `AuthModule`, `UsersModule` and `ProductsModule`
-3. `DatabaseService.onModuleInit()` calls `this.$connect()` to open the Postgres connection
+2. `NestFactory.create(AppModule)` builds the application; `AppModule` loads `ConfigModule` (global), `CacheModule` (global), `MetricsModule`, `DatabaseModule`, `AuthModule`, `UsersModule` and `ProductsModule`
+3. Nest's logger is swapped for pino, so startup lines and every request line land in one JSON stream, and the correlation middleware mints the per-request id echoed as `X-Request-Id`
 4. Global prefix `/api` is set, and `trust proxy` is set from `TRUST_PROXY` — what `@Ip()` returns, and so what login throttling counts
 5. Helmet security headers are registered, **before** the documentation route, because Express runs handlers in the order they were added
 6. CORS is enabled from `CORS_ORIGIN`, defaulting to `http://localhost:3000`, exposing `X-Cache` to browser script
 7. The OpenAPI document is served at `/api/docs` when `API_DOCS` allows
 8. The global `ValidationPipe` and `ApiExceptionFilter` are registered
-9. Server listens on `PORT` (default `3030`)
+9. `DatabaseService.onModuleInit()` calls `this.$connect()` to open the Postgres connection
+10. Server listens on `PORT` (default `3030`)
 
 ### Request Flow (a cached read)
 
@@ -143,6 +146,7 @@ Client → POST /api/auth/login { email, password }
 AppModule
   ├── ConfigModule (global)
   ├── CacheModule (global)
+  ├── MetricsModule
   ├── DatabaseModule
   ├── AuthModule
   │     └── UsersModule
@@ -161,13 +165,14 @@ ProductsModule
 
 ## Security Notes
 
-- **Every route requires a bearer token unless it opts out** with `@Public()`, because `AuthGuard` is registered globally on `APP_GUARD` (ADR-0002). Three routes opt out: the health route, registration and login.
+- **Every route requires a bearer token unless it opts out** with `@Public()`, because `AuthGuard` is registered globally on `APP_GUARD` (ADR-0002). The routes that opt out: the health routes, the metrics endpoint, registration and login.
 - `AuthGuard` expects `Authorization: Bearer <jwt>` and attaches the verified claims to `req.user`.
 - `ApiKeyGuard` expects `x-api-key` matching `API_KEY`, and refuses every request when that variable is unset rather than comparing two absent values. It is **never stacked** on the JWT guard — `@MachineToMachine()` stands that one down and applies this one instead, on `POST /products` alone.
 - **Passwords are hashed with bcryptjs** and compared against the hash (ADR-0003). The password field is never returned by any route.
 - **Failed logins are throttled** per source _and_ User, and per source alone. Only failures count, and a success clears that User's record. The counts live in one process, so two replicas mean two counts — [deployment.md](deployment.md) §8 records that as the limit it is.
-- `ApiExceptionFilter` is **registered globally** in `main.ts`. It answers everything in one envelope, translates `P2025` to 404 and `P2002` to 409, and logs the stack of anything still answering 5xx — the body deliberately carries no detail.
+- `ApiExceptionFilter` is **registered globally** in `main.ts`. It answers everything in one envelope, translates `P2025` to 404 and `P2002` to 409, and logs the stack of anything still answering 5xx under the request's id — the body deliberately carries no detail. That 5xx branch is also the named error-tracking hook point ([ADR-0008](adr/0008-pino-logging-opt-in-metrics-and-a-named-error-hook.md)).
 - The `ValidationPipe` runs with `whitelist` and `forbidNonWhitelisted`, so an undeclared property is refused by name rather than dropped silently.
 - Helmet sets a strict Content-Security-Policy on every response, loosened only for the Swagger UI page, which is built from inline script and style.
 - CORS comes from `CORS_ORIGIN`. It matters only for callers reaching the API _from a browser_ — the client's own pages call it from the Next server.
+- **Credentials never reach the logs.** The request logger redacts `authorization`, `x-api-key` and `cookie` at the logger, and honours a caller-supplied `x-request-id` only when it looks like an id.
 - What remains an Adopter's to decide — token revocation, refresh tokens, a general rate limit, TLS — is in [deployment.md](deployment.md).

@@ -1,3 +1,4 @@
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +10,7 @@ import { configurationProblems } from './config/configuration';
 import { ApiExceptionFilter } from './config/filter/api-exception.filter';
 import { validationPipe } from './config/pipes/validation.pipe';
 import { securityHeaders } from './config/security-headers';
+import { requestCorrelation } from './config/logging';
 
 // The environment is already complete here: `nx serve` loads apps/aze-api/.env
 // into the task, and running the bundle directly from that directory has it
@@ -39,6 +41,14 @@ async function bootstrap() {
 
   // Typed as the Express application it is, so `trust proxy` below is settable.
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Nest's own logging goes through pino from here on, so the startup lines
+  // and every request line land in the same JSON stream. The correlation
+  // middleware runs first of all: it mints the requestId the pino logger and
+  // the exception filter both read, and echoes it as a response header.
+  app.useLogger(app.get(PinoLogger));
+  app.use(requestCorrelation);
+
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
 
@@ -91,7 +101,7 @@ async function bootstrap() {
   }
 
   app.useGlobalPipes(validationPipe());
-  app.useGlobalFilters(new ApiExceptionFilter());
+  app.useGlobalFilters(app.get(ApiExceptionFilter));
 
   await app.listen(port);
   Logger.log(

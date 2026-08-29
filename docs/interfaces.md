@@ -15,7 +15,7 @@ the interactive page at `/api/docs`.
 | Guard | What it means |
 | --- | --- |
 | **JWT** | `Authorization: Bearer <token>`, verified by the global `AuthGuard` ([ADR-0002](adr/0002-fail-closed-auth-guard.md)). This is the default: a route is here unless it opts out |
-| **None** | `@Public()` — no credential. Only the health route, registration and login |
+| **None** | `@Public()` — no credential. Only the health routes, the metrics endpoint, registration and login |
 | **API key** | `@MachineToMachine()` — `x-api-key` matching `API_KEY`. It replaces the JWT guard rather than stacking on top of it |
 
 Every refusal, whatever raised it, arrives in one envelope —
@@ -47,9 +47,12 @@ These routes are what an Adopter keeps.
 | Route | Guard | Body | Answers |
 | --- | --- | --- | --- |
 | `GET /api` | None | — | `HealthResponse` — `{ message }`. The health route, and what the container healthcheck and the chart's probes call |
+| `GET /api/health/live` | None | — | `LivenessResponse` — `{ status: "live" }`. Answers whenever the process is up; no dependency is consulted |
+| `GET /api/health/ready` | None | — | `ReadinessResponse` — `{ status, checks: { database, cache } }`. Postgres gates readiness; the cache is reported and never gates it ([ADR-0005](adr/0005-redis-cache-fails-open.md)). 503, as the refusal envelope, when Postgres is not answering |
 | `POST /api/auth/register` | None | `RegisterDto` — `email`, `password`, optional `name` | `AuthResponse` — `{ userId, email, accessToken }`. Creates the User with a bcryptjs hash. Registration is open ([docs/deployment.md](deployment.md) §8) |
 | `POST /api/auth/login` | None | `LoginDto` — `email`, `password` | `AuthResponse`. Answers 200, not 201. Failures are throttled per source and User; the source is `@Ip()`, which depends on `TRUST_PROXY` |
 | `GET /api/users/me` | JWT | — | `UserProfile` — the User the token identifies. There is no route to any other User, and no route here creates one |
+| `GET /api/metrics` | None | — | The Prometheus exposition in text format. Refuses with 404 until `METRICS_ENABLED=true` — off by default everywhere |
 
 ## Demo
 

@@ -1,22 +1,59 @@
-import { Body, Controller, HttpCode, HttpStatus, Ip, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ApiRefusal } from '../config/decorators/api-refusal.decorator';
 import { Public } from '../config/decorators/public.decorator';
+import type { Request, Response } from 'express';
+import { appConfig } from '../config/configuration';
 import { AuthService } from './auth.service';
+import { REFRESH_COOKIE, clearRefreshCookie, setRefreshCookie } from './refresh-cookie';
 import { AuthResponse } from './auth.response';
+import { AuthNoticeResponse } from './auth-notice.response';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
+  // Registration stays open (ADR-0010), but with a tighter per-source
+  // throttle than the perimeter: creating User rows is the cheapest abuse of
+  // a public write route. The ceiling is deployment configuration, read once
+  // at class definition — the same value the startup check validated.
+  @Throttle({
+    default: {
+      limit: appConfig().registrationsPerMinute,
+      ttl: 60_000,
+    },
+  })
   @Public()
   @ApiCreatedResponse({ description: 'The User, and a token for them', type: AuthResponse })
   @ApiRefusal(HttpStatus.CONFLICT, 'That email is already registered')
   @Post('register')
-  register(@Body() input: RegisterDto) {
-    return this.authService.register(input);
+  async register(
+    @Body() input: RegisterDto,
+    @Res({ passthrough: true }) reply: Response,
+  ): Promise<AuthResponse> {
+    const { auth, refreshToken } = await this.authService.register(input);
+    this.setCookie(reply, refreshToken);
+    return auth;
   }
 
   // The address is read here rather than in the service, so what counts as a
@@ -28,7 +65,101 @@ export class AuthController {
   @ApiRefusal(HttpStatus.UNAUTHORIZED, 'Invalid credentials')
   @ApiRefusal(HttpStatus.TOO_MANY_REQUESTS, 'Too many failed attempts from this source')
   @Post('login')
-  login(@Body() input: LoginDto, @Ip() source: string) {
-    return this.authService.authenticate(input, source);
+  async login(
+    @Body() input: LoginDto,
+    @Ip() source: string,
+    @Res({ passthrough: true }) reply: Response,
+  ): Promise<AuthResponse> {
+    const { auth, refreshToken } = await this.authService.authenticate(input, source);
+    this.setCookie(reply, refreshToken);
+    return auth;
+  }
+
+  // Exchange a valid refresh cookie for a fresh access token and a rotated
+  // refresh cookie (ADR-0009). The body stays empty: the credential travels in
+  // the cookie, never in a request body a browser could log.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'A fresh access token for the same User', type: AuthResponse })
+  @ApiRefusal(HttpStatus.UNAUTHORIZED, 'The session is no longer valid. Sign in again.')
+  @Post('refresh')
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) reply: Response,
+  ): Promise<AuthResponse> {
+    const presented = request.cookies?.[REFRESH_COOKIE];
+    if (!presented) {
+      clearRefreshCookie(reply);
+      throw new UnauthorizedException('The session is no longer valid. Sign in again.');
+    }
+
+    const { userId, refreshToken } = await this.authService.refresh(presented);
+    this.setCookie(reply, refreshToken);
+    return await this.authService.issueAccessTokenFor(userId);
+  }
+
+  // Revokes the presented family and clears the cookie. The client clears its
+  // own cookies regardless of the answer, so a missing cookie still ends the
+  // local session without pretending anything was revoked server-side.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'The session family was revoked', type: AuthNoticeResponse })
+  @ApiRefusal(HttpStatus.UNAUTHORIZED, 'The session is no longer valid. Sign in again.')
+  @Post('logout')
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) reply: Response,
+  ): Promise<{ message: string }> {
+    const presented = request.cookies?.[REFRESH_COOKIE];
+    if (!presented) {
+      clearRefreshCookie(reply);
+      throw new UnauthorizedException('The session is no longer valid. Sign in again.');
+    }
+
+    await this.authService.logout(presented);
+    clearRefreshCookie(reply);
+    return { message: 'Signed out' };
+  }
+
+  // Enumeration-safe (ADR-0011): one identical answer, whether or not the
+  // address is registered. The endpoint inherits the fail-closed perimeter
+  // throttle, and the account is never locked by reset requests.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'The same answer either way', type: AuthNoticeResponse })
+  @Post('forgot-password')
+  async forgotPassword(@Body() input: ForgotPasswordDto): Promise<AuthNoticeResponse> {
+    const notice = await this.authService.forgotPassword(input.email);
+    return { message: notice.message };
+  }
+
+  // Answers 200 with the neutral envelope; an invalid or expired token is a
+  // 400 from the service, not a hint about which tokens exist.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'The password was changed and every session was revoked', type: AuthNoticeResponse })
+  @ApiRefusal(HttpStatus.BAD_REQUEST, 'This reset link is invalid or has expired.')
+  @Post('reset-password')
+  async resetPassword(@Body() input: ResetPasswordDto): Promise<AuthNoticeResponse> {
+    const notice = await this.authService.resetPassword(input.token, input.password);
+    return { message: notice.message };
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'The email address is now verified', type: AuthNoticeResponse })
+  @ApiRefusal(HttpStatus.BAD_REQUEST, 'This verification link is invalid or has expired.')
+  @Post('verify-email')
+  async verifyEmail(@Body() input: VerifyEmailDto): Promise<AuthNoticeResponse> {
+    const notice = await this.authService.verifyEmail(input.token);
+    return { message: notice.message };
+  }
+
+  private setCookie(reply: Response, refreshToken: string): void {
+    setRefreshCookie(
+      reply,
+      refreshToken,
+      this.configService.get<number>('refreshTokenTtlSeconds') as number,
+    );
   }
 }

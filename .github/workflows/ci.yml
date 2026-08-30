@@ -90,6 +90,14 @@ jobs:
       # The metrics spec asserts the Prometheus endpoint answers; the API
       # refuses nothing without it, so this only turns the endpoint on.
       METRICS_ENABLED: "true"
+      # The suite drives hundreds of requests from one source within a minute;
+      # the perimeter exists to be tested in specs that name it, not to throttle
+      # every other spec. Registration keeps its tighter ceiling in the specs
+      # that exercise it.
+      THROTTLE_PER_MINUTE: "100000"
+      # Several spec files register fresh Users; the tighter registration
+      # ceiling would throttle the suite itself.
+      REGISTRATIONS_PER_MINUTE: "100000"
 
     steps:
       - uses: actions/checkout@v4

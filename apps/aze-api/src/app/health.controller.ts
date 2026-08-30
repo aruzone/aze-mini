@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { LivenessResponse, ReadinessResponse } from '@aze-mini/platform-contracts';
 import { ApiRefusal } from '../config/decorators/api-refusal.decorator';
 import { Public } from '../config/decorators/public.decorator';
@@ -10,7 +11,11 @@ import { ReadinessResponse as ReadinessResponseBody } from './readiness.response
 // Probes poll without a credential — there is nothing here to protect.
 // Liveness answers from the process alone; readiness gates on Postgres alone,
 // and says so in the document rather than leaving a caller to discover it.
+// Probes never consume the throttle budget either: an orchestrator polling
+// harder than the perimeter must not lock the pod out of its own health
+// route, and a probe must never 503 because Redis is down.
 @Controller('health')
+@SkipThrottle()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 

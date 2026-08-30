@@ -1,4 +1,5 @@
-import { ApiErrorResponse } from '@aze-mini/platform-contracts';
+import { ApiErrorResponse, AuthResponse } from '@aze-mini/platform-contracts';
+import { REFRESH_COOKIE } from './session';
 
 /**
  * Where the API lives, read at request time rather than baked in at build time.
@@ -40,6 +41,13 @@ type Options = {
   token?: string;
   method?: 'GET' | 'POST';
   body?: unknown;
+  /**
+   * Login and register answer with a `Set-Cookie` for the refresh token in
+   * addition to the JSON body. The client's server is the cookie jar for the
+   * browser, so the caller passes this to capture the header and store the
+   * token in its own httpOnly cookie.
+   */
+  onResponse?: (response: Response) => void;
 };
 
 /**
@@ -54,7 +62,7 @@ type Options = {
  * in anything below.
  */
 export async function apiFetch<T>(path: string, options: Options = {}): Promise<T> {
-  const { token, method = 'GET', body } = options;
+  const { token, method = 'GET', body, onResponse } = options;
 
   const response = await fetch(`${apiUrl()}${path}`, {
     method,
@@ -68,11 +76,56 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
     cache: 'no-store',
   });
 
+  onResponse?.(response);
+
   if (!response.ok) {
     throw new ApiError(response.status, await refusalFrom(response));
   }
 
   return response.json() as Promise<T>;
+}
+
+/**
+ * Silent rotation (ADR-0009): present the refresh token, get a fresh access
+ * token and a rotated refresh cookie back. The refresh token rides in a
+ * Cookie header — the client server is the cookie jar — and the rotated
+ * replacement is read off the response's `Set-Cookie` headers, because the
+ * API deliberately never puts a refresh token in a body.
+ */
+export async function refreshSession(
+  refreshToken: string,
+): Promise<{ auth: AuthResponse; refreshToken?: string } | null> {
+  const response = await fetch(`${apiUrl()}/auth/refresh`, {
+    method: 'POST',
+    headers: { cookie: `${REFRESH_COOKIE}=${refreshToken}` },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const auth = (await response.json()) as AuthResponse;
+  const setCookies = response.headers.getSetCookie();
+  const rotated = setCookies
+    .map((cookie) => cookie.split(';')[0])
+    .find((pair) => pair.startsWith(`${REFRESH_COOKIE}=`))
+    ?.split('=')[1];
+
+  return { auth, refreshToken: rotated };
+}
+
+/**
+ * Logout (ADR-0009): revoke the presented refresh family at the API. Best
+ * effort from the caller's side — the local cookies are cleared regardless,
+ * and an expired or unknown token simply has nothing left to revoke.
+ */
+export async function revokeSession(refreshToken: string): Promise<void> {
+  await fetch(`${apiUrl()}/auth/logout`, {
+    method: 'POST',
+    headers: { cookie: `${REFRESH_COOKIE}=${refreshToken}` },
+    cache: 'no-store',
+  }).catch(() => undefined);
 }
 
 // ApiErrorResponse says `message` is a string or a list of them. A caller

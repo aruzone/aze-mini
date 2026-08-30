@@ -28,7 +28,13 @@ routes arrive documented in [docs/interfaces.md](interfaces.md), and
 - **Observability** — pino JSON logging with a per-request id echoed as
   `X-Request-Id`, opt-in metrics, liveness and readiness routes, and the named
   error-tracking hook ([ADR-0008](adr/0008-pino-logging-opt-in-metrics-and-a-named-error-hook.md)).
-  Implemented and merged; the remaining chart wiring is Tier 1's first item.
+- **The token lifecycle** — rotating refresh sessions in Postgres
+  ([ADR-0009](adr/0009-rotating-refresh-sessions-in-postgres.md)), fail-closed
+  throttling in two layers ([ADR-0010](adr/0010-throttling-fails-closed-in-two-layers.md)),
+  and email verification and password reset
+  ([ADR-0011](adr/0011-email-flows-with-an-open-verification-gate.md)),
+  plus the client's CSP nonce. Implemented and merged; the remaining chart
+  wiring is Tier 1's first item.
 
 ## Tier 1 — before the fork carries real Users
 

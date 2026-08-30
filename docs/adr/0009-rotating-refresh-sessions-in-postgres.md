@@ -1,6 +1,6 @@
 # The token lifecycle: rotating refresh sessions in Postgres
 
-**Status:** accepted, not yet implemented — decided in [#71](https://github.com/aruzone/aze-mini/issues/71) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
+**Status:** accepted and implemented — decided in [#71](https://github.com/aruzone/aze-mini/issues/71) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
 
 The Starter issued one JWT that lived a day, with no refresh and no
 revocation: a stolen token was valid until it expired, and the only revocation

@@ -34,20 +34,34 @@ Delete it, or never run the seed against anything real. See
 
 ### 3. Understand the token you are issuing
 
-`AuthModule` signs tokens with **`expiresIn: '1d'`**.
+The token lifecycle is rotating refresh sessions in Postgres
+([ADR-0009](adr/0009-rotating-refresh-sessions-in-postgres.md)), spelled out in
+`apps/aze-api/src/auth/refresh-sessions.ts`:
 
-- **There is no revocation.** No deny-list, no session store, no `jti`. A signed
-  token is valid until it expires, and that is the entire mechanism. A User who
-  signs out has their cookie cleared; the token itself remains valid for the
-  rest of the day to anyone who captured it.
-- **There is no refresh token.** One token, one day, then sign in again.
-- **Rotating `JWT_SECRET` is your revocation.** It invalidates every token at
-  once, including everyone else's.
+- **Access tokens live 15 minutes by default** (`ACCESS_TOKEN_TTL_SECONDS`).
+  They are stateless JWTs, exactly as before (ADR-0002) — only shorter. A
+  stolen one stops working on its own.
+- **Refresh sessions live in the database.** `POST /auth/login` and
+  `POST /auth/register` set an httpOnly `aze_refresh` cookie carrying an
+  opaque 256-bit token. Only its SHA-256 hash is stored, with a family id, an
+  absolute expiry of 30 days (`REFRESH_TOKEN_TTL_SECONDS`) and an idle expiry
+  of 7 days (`REFRESH_IDLE_TTL_SECONDS`).
+- **Every exchange rotates the token.** `POST /auth/refresh` swaps the
+  presented cookie for a fresh access token and a new refresh token in the
+  same family. Presenting a token that was already rotated or revoked revokes
+  the entire family — that is what catches a stolen refresh token even when
+  the attacker races the legitimate client.
+- **Revocation is a row update.** Logout (`POST /auth/logout`) revokes the
+  family the presented token belongs to; a password reset revokes every family
+  the User has. Rotating `JWT_SECRET` is no longer the only way to sign
+  anyone out.
+- **The client refreshes silently.** `apps/aze-client/src/middleware.ts`
+  exchanges the refresh cookie for a fresh pair on navigation, so a signed-in
+  User never sees the sign-in screen because a quarter of an hour passed.
 
-If any of that is unacceptable for what you are building — and for anything
-holding real Users it probably is — shorten the expiry, add a refresh token,
-and put a revocation check somewhere. Decide this before launch, not after an
-incident.
+This store fails closed, deliberately: a session that cannot be verified
+against the rows is denied, never waved through. The cache's fail-open policy
+(ADR-0005) does not apply here.
 
 ### 4. Name your own CORS origin
 
@@ -117,29 +131,46 @@ Nothing here backs anything up.
 ### 8. Know what the perimeter does
 
 - Every route requires a bearer token unless it opts out with `@Public()`
-  (ADR-0002). Three do: the health route, login, and registration.
+  (ADR-0002). The health routes, the metrics endpoint, login, registration and
+  the email-flow routes carry it.
 - `POST /products` uses an API key instead, via `@MachineToMachine()`.
-- **Registration is open.** Anyone who can reach `/auth/register` can create a
-  User. If that is not what you want, that is your change to make.
-- **Failed sign-ins are throttled; nothing else is.** Registration, and every
-  other route, can be called as fast as a caller likes. A general rate limit is
-  still yours to add.
-- **The throttle counts in one process.** Two replicas mean two counts, so an
-  attacker spread across them gets twice the attempts. Moving the counts to
-  Redis is the fix — and note that it must *not* inherit the cache's fail-open
-  policy (ADR-0005), or an attacker disables the limiter by taking Redis down.
-  `apps/aze-api/src/auth/login-attempts.ts` says the same thing where it lives.
-- **The client's CSP is partial.** `frame-ancestors`, `base-uri` and `object-src`
-  are set; a `script-src` worth having needs a per-request nonce threaded
-  through the App Router, which is left to you.
-
-### 9. Run it as a non-root user with a read-only root
-
-All three images already do — the API, the client, and the `migrator` stage the
-migration job runs — and the chart sets `readOnlyRootFilesystem` on every
-workload, including the job that holds `DATABASE_URL`. If you change the
-
-images, keep that.
+- **Every route sits behind a perimeter throttle** — 100 requests per minute
+  per source by default (`THROTTLE_PER_MINUTE`), shared across replicas
+  through Redis ([ADR-0010](adr/0010-throttling-fails-closed-in-two-layers.md)).
+  The health and metrics routes are exempt: probes and scrapers must not eat
+  the budget, and they must answer even while Redis is down. Per-route
+  overrides use `@Throttle()` from `@nestjs/throttler` — that is the
+  vocabulary to use for an expensive route of your own.
+- **Registration stays open, throttled tighter** — 5 per source per minute by
+  default (`REGISTRATIONS_PER_MINUTE`). Closing it remains your change to
+  make; the Starter ships open, throttled, and honest about it.
+- **Failed sign-ins are counted per source and User** — 5 failures per
+  source-and-User pair, 20 per source alone, window from the first failure.
+  The counters are Redis `INCR` now, in
+  `apps/aze-api/src/auth/login-attempts.ts`, so two replicas share one budget.
+- **Both limiters fail closed.** When Redis cannot answer, throttled routes
+  answer 503 and sign-ins are refused — never waved through. A limiter that
+  fails open is one an attacker disables by taking Redis down. This is the
+  mirror of the cache's fail-open (ADR-0005): speed fails open, authorization
+  fails closed, and the two are never one policy. It is also why Redis is
+  required, not optional, for the full experience.
+- **Unverified Users may sign in.** Registration sends a verification email,
+  and `verifiedAt` rides in the token claims — but nothing blocks sign-in on
+  it ([ADR-0011](adr/0011-email-flows-with-an-open-verification-gate.md)). If
+  you want the gate, refuse the login when `verifiedAt` is null: a one-line
+  change at the login check, no schema change.
+- **The client's CSP is strict.** The middleware mints a per-request nonce,
+  and `script-src` carries it with `strict-dynamic`
+  (`apps/aze-client/src/middleware.ts`).
+- **Email flows are built in** ([ADR-0011](adr/0011-email-flows-with-an-open-verification-gate.md)).
+  Password reset and address verification share one token machine
+  (`apps/aze-api/src/auth/email-tokens.ts`) and three public routes under the
+  fail-closed throttles. The reset flow is enumeration-safe end to end, and
+  reset links are built from `APP_ORIGIN`, never from the request's `Host`
+  header. Outbound mail goes over plain SMTP from `SMTP_URL`; unset — or
+  anywhere outside production — and the mail is written into the JSON log
+  instead, so a fresh clone runs the whole flow with no SMTP server and reads
+  the tokens off the console.
 
 ### 10. Observe it
 
@@ -154,13 +185,13 @@ The fork you deploy ships with the observability it needs on day one, spelled ou
 
 | | State |
 | --- | --- |
-| Tokens signed, expiry enforced | ✅ 1 day |
-| Token revocation | ❌ none |
-| Refresh tokens | ❌ none |
-| Login rate limiting | ✅ per source and User, in-process only |
-| Rate limiting elsewhere | ❌ none |
-| Security headers | ✅ both apps; client CSP is partial |
-| Security headers | ✅ both apps; client CSP is partial |
+| Tokens signed, expiry enforced | ✅ 15-minute access tokens (`ACCESS_TOKEN_TTL_SECONDS`) |
+| Token revocation | ✅ row-level, per family or per User ([ADR-0009](adr/0009-rotating-refresh-sessions-in-postgres.md)) |
+| Refresh tokens | ✅ rotating, hashed at rest, httpOnly cookie |
+| Login rate limiting | ✅ per source and User, shared through Redis |
+| Rate limiting elsewhere | ✅ perimeter throttle, fail-closed ([ADR-0010](adr/0010-throttling-fails-closed-in-two-layers.md)) |
+| Security headers | ✅ both apps; client CSP is strict with a per-request nonce |
+| Email verification and reset | ✅ built in; mail over `SMTP_URL`, logged locally when unset ([ADR-0011](adr/0011-email-flows-with-an-open-verification-gate.md)) |
 | Structured logs | ✅ pino, JSON with `requestId` — `LOG_LEVEL` tunes it |
 | Readiness / liveness probes | ✅ `/api/health/live`, `/api/health/ready` |
 | Metrics endpoint | ⚠️ opt-in — `METRICS_ENABLED=true` |

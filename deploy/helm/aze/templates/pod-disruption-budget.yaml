@@ -1,0 +1,18 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+# Two replicas and no budget means a node drain can take both (the row this
+# replaces in the README's "leaves to you" table). minAvailable: 1 is the
+# floor, not a promise: it says a voluntary disruption may never take the last
+# pod of either app. A drain that cannot satisfy it waits.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "aze.fullname" . }}
+  labels:
+    {{- include "aze.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aze.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

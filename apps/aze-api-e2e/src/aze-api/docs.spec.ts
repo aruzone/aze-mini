@@ -63,6 +63,11 @@ describe('the API documentation', () => {
         'GET /api/metrics',
         'POST /api/auth/login',
         'POST /api/auth/register',
+        'POST /api/auth/refresh',
+        'POST /api/auth/logout',
+        'POST /api/auth/forgot-password',
+        'POST /api/auth/reset-password',
+        'POST /api/auth/verify-email',
         'GET /api/users/me',
         'GET /api/products',
         'POST /api/products',
@@ -90,7 +95,10 @@ describe('the API documentation', () => {
   // Without the CLI plugin every property is annotated by hand, so a field
   // added to a DTO without @ApiProperty would vanish from the schema silently.
   it.each([
-    ['CreateProductDto', ['name', 'description', 'price', 'categoryId', 'tagIds']],
+    ['LoginDto', ['email', 'password']],
+    ['ForgotPasswordDto', ['email']],
+    ['ResetPasswordDto', ['token', 'password']],
+    ['VerifyEmailDto', ['token']],
     ['CreateProductCategoryDto', ['name']],
     ['CreateTagDto', ['name', 'productIds']],
     ['CreateReviewDto', ['rating', 'comment', 'productId']],
@@ -227,12 +235,11 @@ describe('the API documentation', () => {
     expect(answerFor('/api/tag/{id}', 'get', '404')).toBeDefined();
     expect(spec.paths['/api/tag'].get.responses['404']).toBeUndefined();
   });
-
   // The same check the DTOs get: without the CLI plugin a field added to a
   // response class without @ApiProperty would vanish from the schema silently.
   it.each([
     ['AuthResponse', ['userId', 'email', 'accessToken']],
-    ['UserProfile', ['id', 'email', 'name', 'createdAt', 'updatedAt']],
+    ['UserProfile', ['id', 'email', 'name', 'verifiedAt', 'createdAt', 'updatedAt']],
     ['HealthResponse', ['message']],
     [
       'Product',

@@ -1,4 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../config/redis-client';
+import { Inject } from '@nestjs/common';
 
 /**
  * How many failures against one User, from one source, before that pair is
@@ -17,14 +20,11 @@ export const MAX_FAILED_LOGINS_PER_SOURCE = 20;
 /** How long failures are remembered, and so how long a refusal lasts. */
 export const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
-/** How often expired counts are swept up. See `prune`. */
-const PRUNE_INTERVAL_MS = 60 * 1000;
-
-type Failures = { count: number; expiresAt: number };
-
-// Two counts per failure, kept in one map under keys that cannot collide.
-const sourceKey = (source: string) => `source:${source}`;
-const userKey = (source: string, email: string) => `user:${source}:${email}`;
+// Two counts per failure, kept under keys that cannot collide. The counts
+// live in Redis, so two replicas share one budget instead of handing an
+// attacker spread across both twice the attempts (ADR-0010).
+const sourceKey = (source: string) => `login:fail:source:${source}`;
+const userKey = (source: string, email: string) => `login:fail:user:${source}:${email}`;
 
 /**
  * Brute-force protection on login. Failures are counted two ways, because one
@@ -45,45 +45,57 @@ const userKey = (source: string, email: string) => `user:${source}:${email}`;
  * holding one valid credential would otherwise wipe the trail of every User
  * they had already tried.
  *
- * The counts live in this process, which is the honest limit of them: two
- * replicas mean two counts, and an attacker spread across both gets twice the
- * attempts. `docs/deployment.md` says so. Moving the map to Redis is the fix,
- * and is a decision about failure behaviour rather than a swap — this must not
- * inherit the cache's fail-open policy (ADR-0005), because a rate limiter that
- * fails open is one an attacker disables by taking Redis down.
+ * The counters are Redis `INCR` with an expiry set on the first failure, which
+ * preserves the window rule — it runs from the first failure, so a caller
+ * cannot hold a count open indefinitely by failing once every fourteen
+ * minutes. And the limiter fails closed (ADR-0010): a Redis that cannot answer
+ * refuses the sign-in with a 503 rather than waving it through, because a rate
+ * limiter that fails open is one an attacker disables by taking Redis down.
  */
 @Injectable()
 export class LoginAttempts {
-  private readonly failures = new Map<string, Failures>();
-  private lastPrunedAt = Date.now();
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  /** How many counts are being held. For the test that keeps pruning honest. */
-  get size(): number {
-    return this.failures.size;
+  async refuseIfExhausted(source: string, email: string): Promise<void> {
+    await this.refuseIf(userKey(source, email), MAX_FAILED_LOGINS);
+    await this.refuseIf(sourceKey(source), MAX_FAILED_LOGINS_PER_SOURCE);
   }
 
-  refuseIfExhausted(source: string, email: string): void {
-    this.refuseIf(userKey(source, email), MAX_FAILED_LOGINS);
-    this.refuseIf(sourceKey(source), MAX_FAILED_LOGINS_PER_SOURCE);
+  async recordFailure(source: string, email: string): Promise<void> {
+    await this.increment(userKey(source, email));
+    await this.increment(sourceKey(source));
   }
 
-  recordFailure(source: string, email: string): void {
-    this.prune();
-    this.increment(userKey(source, email));
-    this.increment(sourceKey(source));
+  async succeeded(source: string, email: string): Promise<void> {
+    try {
+      await this.redis.del(userKey(source, email));
+    } catch {
+      // A success that cannot clear its count only shortens the budget; the
+      // refusal still expires with the window. Never block a signed-in User
+      // on the cleanup.
+    }
   }
 
-  succeeded(source: string, email: string): void {
-    this.failures.delete(userKey(source, email));
-  }
+  private async refuseIf(key: string, limit: number): Promise<void> {
+    let count: string | null;
+    try {
+      count = await this.redis.get(key);
+    } catch {
+      throw this.unavailable();
+    }
 
-  private refuseIf(key: string, limit: number): void {
-    const record = this.current(key);
-    if (!record || record.count < limit) {
+    if (!count || Number(count) < limit) {
       return;
     }
 
-    const seconds = Math.ceil((record.expiresAt - Date.now()) / 1000);
+    let ttl: number;
+    try {
+      ttl = await this.redis.pttl(key);
+    } catch {
+      throw this.unavailable();
+    }
+
+    const seconds = Math.max(1, Math.ceil(ttl / 1000));
     throw new HttpException(
       `Too many failed sign-in attempts. Try again in ${seconds} second${
         seconds === 1 ? '' : 's'
@@ -92,45 +104,24 @@ export class LoginAttempts {
     );
   }
 
-  private increment(key: string): void {
-    const record = this.current(key);
-    // The window runs from the first failure, so a caller cannot hold a count
-    // open indefinitely by failing once every fourteen minutes.
-    this.failures.set(key, {
-      count: (record?.count ?? 0) + 1,
-      expiresAt: record?.expiresAt ?? Date.now() + LOGIN_ATTEMPT_WINDOW_MS,
-    });
-  }
-
-  private current(key: string): Failures | undefined {
-    const record = this.failures.get(key);
-    if (!record) {
-      return undefined;
-    }
-    if (record.expiresAt <= Date.now()) {
-      this.failures.delete(key);
-      return undefined;
-    }
-    return record;
-  }
-
-  // Nothing else sweeps this map, and an attacker rotating addresses is what
-  // would grow it. Correctness does not depend on the sweep — `current()`
-  // ignores anything expired whether or not it is still in the map — so this
-  // only reclaims memory, and doing it on every failure would be O(n) per
-  // write: quadratic work handed to exactly the caller causing it. Once a
-  // minute reclaims the same memory and costs nothing per attempt.
-  private prune(): void {
-    const now = Date.now();
-    if (now - this.lastPrunedAt < PRUNE_INTERVAL_MS) {
-      return;
-    }
-    this.lastPrunedAt = now;
-
-    for (const [key, record] of this.failures) {
-      if (record.expiresAt <= now) {
-        this.failures.delete(key);
+  private async increment(key: string): Promise<void> {
+    try {
+      // INCR is atomic, so the count can never be lost to a race between two
+      // replicas. The window starts at the first failure: the expiry is only
+      // set when the counter is created.
+      const count = await this.redis.incr(key);
+      if (count === 1) {
+        await this.redis.pexpire(key, LOGIN_ATTEMPT_WINDOW_MS);
       }
+    } catch {
+      throw this.unavailable();
     }
+  }
+
+  private unavailable(): HttpException {
+    return new HttpException(
+      'Sign-in is temporarily unavailable. Try again shortly.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   }
 }

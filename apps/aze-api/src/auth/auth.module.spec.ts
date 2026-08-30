@@ -20,7 +20,12 @@ describe('AuthModule', () => {
     process.env = { ...original, JWT_SECRET: 'a-real-secret' };
 
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ load: [appConfig] }), AuthModule],
+      imports: [
+        // Global, so the controller's ConfigService and the JWT factory resolve
+        // against the same loaded configuration.
+        ConfigModule.forRoot({ isGlobal: true, load: [appConfig] }),
+        AuthModule,
+      ],
     })
       .overrideProvider(DatabaseService)
       .useValue({})

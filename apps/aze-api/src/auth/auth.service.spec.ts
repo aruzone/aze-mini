@@ -4,11 +4,16 @@ import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/library';
 import { LoginAttempts } from './login-attempts';
-import { AuthService } from './auth.service';
+import { RefreshSessions } from './refresh-sessions';
+import { REDIS_CLIENT } from '../config/redis-client';
 import { UsersService } from '../users/users.service';
+import { EmailTokens } from './email-tokens';
+import { MailSender } from '../mail/mail-sender';
+import { AuthService } from './auth.service';
 
 /** Who is asking. Each case here is one caller, so one address will do. */
 const SOURCE = '203.0.113.7';
+
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -20,15 +25,40 @@ describe('AuthService', () => {
 
   const mockJwtService = { sign: jest.fn(() => 'signed.jwt.token') };
 
+  const mockRefreshSessions = { issue: jest.fn(async () => 'refresh.token.value') };
+
+  const mockEmailTokens = {
+    issue: jest.fn(async () => 'email-token-value'),
+    consume: jest.fn(async () => 'user-1'),
+  };
+
+  const mockMailSender = { send: jest.fn(async () => undefined) };
+
   beforeEach(async () => {
     jest.resetAllMocks();
     mockJwtService.sign.mockReturnValue('signed.jwt.token');
+    mockRefreshSessions.issue.mockResolvedValue('refresh.token.value');
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: RefreshSessions, useValue: mockRefreshSessions },
+        { provide: EmailTokens, useValue: mockEmailTokens },
+        { provide: MailSender, useValue: mockMailSender },
+        // LoginAttempts is not under test here; its limiter just needs a
+        // Redis that answers as "nothing counted".
+        {
+          provide: REDIS_CLIENT,
+          useValue: {
+            get: async () => null,
+            incr: async () => 1,
+            pexpire: async () => 1,
+            pttl: async () => -1,
+            del: async () => 1,
+          },
+        },
         LoginAttempts,
       ],
     }).compile();
@@ -131,11 +161,12 @@ describe('AuthService', () => {
         SOURCE,
       );
 
-      expect(result).toEqual({
+      expect(result.auth).toEqual({
         userId: 'user-1',
         email: 'ada@example.com',
         accessToken: 'signed.jwt.token',
       });
+      expect(result.refreshToken).toBe('refresh.token.value');
     });
 
     it('rejects a stored plain-text password that equals the submitted one', async () => {
@@ -191,7 +222,7 @@ describe('AuthService', () => {
       );
 
       expect(mockUsersService.findUserByEmail).toHaveBeenCalledWith('ada@example.com');
-      expect(result).toMatchObject({ userId: 'user-1' });
+      expect(result.auth).toMatchObject({ userId: 'user-1' });
     });
   });
 });

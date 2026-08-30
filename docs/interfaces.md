@@ -49,9 +49,14 @@ These routes are what an Adopter keeps.
 | `GET /api` | None | — | `HealthResponse` — `{ message }`. The health route, and what the container healthcheck and the chart's probes call |
 | `GET /api/health/live` | None | — | `LivenessResponse` — `{ status: "live" }`. Answers whenever the process is up; no dependency is consulted |
 | `GET /api/health/ready` | None | — | `ReadinessResponse` — `{ status, checks: { database, cache } }`. Postgres gates readiness; the cache is reported and never gates it ([ADR-0005](adr/0005-redis-cache-fails-open.md)). 503, as the refusal envelope, when Postgres is not answering |
-| `POST /api/auth/register` | None | `RegisterDto` — `email`, `password`, optional `name` | `AuthResponse` — `{ userId, email, accessToken }`. Creates the User with a bcryptjs hash. Registration is open ([docs/deployment.md](deployment.md) §8) |
-| `POST /api/auth/login` | None | `LoginDto` — `email`, `password` | `AuthResponse`. Answers 200, not 201. Failures are throttled per source and User; the source is `@Ip()`, which depends on `TRUST_PROXY` |
-| `GET /api/users/me` | JWT | — | `UserProfile` — the User the token identifies. There is no route to any other User, and no route here creates one |
+| `POST /api/auth/register` | None | `RegisterDto` — `email`, `password`, optional `name` | `AuthResponse` — `{ userId, email, accessToken }`. Creates the User with a bcryptjs hash and sets the httpOnly refresh cookie ([ADR-0009](adr/0009-rotating-refresh-sessions-in-postgres.md)). Registration is open and throttled tighter than the perimeter ([docs/deployment.md](deployment.md) §8) |
+| `POST /api/auth/login` | None | `LoginDto` — `email`, `password` | `AuthResponse`. Answers 200, not 201. Failures are throttled per source and User; the source is `@Ip()`, which depends on `TRUST_PROXY`. Sets the refresh cookie |
+| `POST /api/auth/refresh` | None | — (the refresh token travels as an httpOnly cookie) | `AuthResponse` — a fresh access token, with the refresh cookie rotated. Reuse of a rotated or revoked token revokes the whole session family ([ADR-0009](adr/0009-rotating-refresh-sessions-in-postgres.md)) |
+| `POST /api/auth/logout` | None | — (the refresh token travels as an httpOnly cookie) | Revokes the session family the presented token belongs to and clears the cookie |
+| `POST /api/auth/forgot-password` | None | `ForgotPasswordDto` — `email` | `AuthNotice` — `{ message }`. The same answer whether or not the address is registered ([ADR-0011](adr/0011-email-flows-with-an-open-verification-gate.md)) |
+| `POST /api/auth/reset-password` | None | `ResetPasswordDto` — `token`, `password` | `AuthNotice`. Writes the new hash, revokes every refresh family the User has, and notifies them by email. 400 for an invalid or expired token |
+| `POST /api/auth/verify-email` | None | `VerifyEmailDto` — `token` | `AuthNotice`. Sets `verifiedAt`. 400 for an invalid or expired token |
+| `GET /api/users/me` | JWT | — | `UserProfile` — the User the token identifies, including `verifiedAt`. There is no route to any other User, and no route here creates one |
 | `GET /api/metrics` | None | — | The Prometheus exposition in text format. Refuses with 404 until `METRICS_ENABLED=true` — off by default everywhere |
 
 ## Demo

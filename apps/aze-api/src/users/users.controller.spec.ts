@@ -21,7 +21,7 @@ describe('UsersController', () => {
   });
 
   it('looks a User up by the uuid the token carries', async () => {
-    await controller.findMe({ userId: USER_ID, email: 'ada@example.com' });
+    await controller.findMe({ userId: USER_ID, email: 'ada@example.com', verified: false });
 
     expect(mockUsersService.findOne).toHaveBeenCalledWith(USER_ID);
   });

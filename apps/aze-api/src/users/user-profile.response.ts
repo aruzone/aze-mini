@@ -14,6 +14,9 @@ export class UserProfile implements Wire<UserProfileContract> {
   @ApiProperty({ type: String, nullable: true, example: 'Ada' })
   name: string | null;
 
+  @ApiProperty({ format: 'date-time', nullable: true, example: null, description: 'Set once the User verified their email. Null means unverified — an Adopter may gate sign-in on it (ADR-0011).' })
+  verifiedAt: string | null;
+
   @ApiProperty({ format: 'date-time', example: '2026-08-26T09:00:00.000Z' })
   createdAt: string;
 

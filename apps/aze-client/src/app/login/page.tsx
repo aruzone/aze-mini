@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { login, LoginState } from '../actions';
+import Link from 'next/link';
 import { Shell } from '../../components/shell';
 
 const EMPTY: LoginState = {};
@@ -61,6 +62,12 @@ export default function LoginPage() {
             {pending ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-muted">
+          <Link href="/forgot-password" className="font-medium text-accent underline underline-offset-4">
+            Forgot your password?
+          </Link>
+        </p>
       </div>
     </Shell>
   );

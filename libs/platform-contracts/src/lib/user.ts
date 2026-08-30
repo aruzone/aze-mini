@@ -7,6 +7,7 @@ export type UserProfile = {
   id: string;
   email: string;
   name: string | null;
+  verifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

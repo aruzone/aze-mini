@@ -44,6 +44,26 @@ const optionalVariableProblems = (): string[] => {
     );
   }
 
+  // The token lifetimes, the throttle ceilings and the mail origin are
+  // positive whole numbers of seconds / requests when given. A duration a
+  // deployment half-writes ("900s") would otherwise fall back to its default
+  // silently and run with lifetimes nobody chose.
+  for (const [name, value] of Object.entries({
+    ACCESS_TOKEN_TTL_SECONDS: process.env.ACCESS_TOKEN_TTL_SECONDS,
+    REFRESH_TOKEN_TTL_SECONDS: process.env.REFRESH_TOKEN_TTL_SECONDS,
+    REFRESH_IDLE_TTL_SECONDS: process.env.REFRESH_IDLE_TTL_SECONDS,
+    THROTTLE_PER_MINUTE: process.env.THROTTLE_PER_MINUTE,
+    REGISTRATIONS_PER_MINUTE: process.env.REGISTRATIONS_PER_MINUTE,
+    EMAIL_RESET_TTL_SECONDS: process.env.EMAIL_RESET_TTL_SECONDS,
+    EMAIL_VERIFICATION_TTL_SECONDS: process.env.EMAIL_VERIFICATION_TTL_SECONDS,
+  })) {
+    if (value !== undefined && (!/^\d+$/.test(value.trim()) || Number(value) <= 0)) {
+      problems.push(
+        `${name} is "${value}", which is not a positive whole number. See apps/aze-api/.env.example.`,
+      );
+    }
+  }
+
   return problems;
 };
 
@@ -119,6 +139,16 @@ const trustProxy = (): boolean | number | string => {
   return Number.isInteger(hops) && hops >= 0 ? hops : configured;
 };
 
+/**
+ * A positive whole number from the environment, or the default when unset.
+ * The values this reads were validated at startup, so a malformed one never
+ * reaches here in a process that booted.
+ */
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = value === undefined ? NaN : Number(value.trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export const appConfig = () => {
   const environment = process.env.NODE_ENV || 'development';
 
@@ -151,6 +181,31 @@ export const appConfig = () => {
     // The metrics endpoint names routes and carries process internals, so it
     // is opt-in like API_DOCS rather than on by default: unset means off,
     // and the exact string "true" turns it on.
+    // The token lifecycle (ADR-0009): how long an access token lives, how long
+    // a refresh chain may exist at all, and how long it may sit unused.
+    accessTokenTtlSeconds: positiveInt(process.env.ACCESS_TOKEN_TTL_SECONDS, 15 * 60),
+    refreshTokenTtlSeconds: positiveInt(process.env.REFRESH_TOKEN_TTL_SECONDS, 30 * 24 * 60 * 60),
+    refreshIdleTtlSeconds: positiveInt(process.env.REFRESH_IDLE_TTL_SECONDS, 7 * 24 * 60 * 60),
+    // Throttling (ADR-0010): the perimeter default per source per minute, and
+    // the tighter ceiling registration alone answers to.
+    throttlePerMinute: positiveInt(process.env.THROTTLE_PER_MINUTE, 100),
+    registrationsPerMinute: positiveInt(process.env.REGISTRATIONS_PER_MINUTE, 5),
+    // Where the email flows (ADR-0011) point their links. Configured rather
+    // than taken from the request's Host header, which a caller supplies and
+    // so could point the reset link at their own host (OWASP host-header
+    // injection). Defaults to the client a local clone starts.
+    appOrigin: process.env.APP_ORIGIN?.trim() || 'http://localhost:3000',
+    // Outbound mail. Unset — or anything outside production — and the mail
+    // sender writes into the JSON log instead, so local development needs no
+    // SMTP server (ADR-0011).
+    smtpUrl: process.env.SMTP_URL?.trim(),
+    // The email token lifetimes (ADR-0011): how long a reset link and a
+    // verification link stay valid.
+    emailResetTtlSeconds: positiveInt(process.env.EMAIL_RESET_TTL_SECONDS, 60 * 60),
+    emailVerificationTtlSeconds: positiveInt(
+      process.env.EMAIL_VERIFICATION_TTL_SECONDS,
+      24 * 60 * 60,
+    ),
     metricsEnabled: process.env.METRICS_ENABLED === 'true',
   };
 };

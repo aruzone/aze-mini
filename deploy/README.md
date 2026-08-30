@@ -102,7 +102,6 @@ Each of these is a decision, not an omission:
 | **Redis** | Same, though the cache fails open, so an unreachable Redis costs speed and nothing else (ADR-0005). |
 | **HorizontalPodAutoscaler** | Needs metrics and a load profile that only you have. `replicas` is a fixed number here. |
 | **NetworkPolicy** | Nothing stops any pod in the cluster reaching the API. Your cluster's default posture decides whether that matters. |
-| **PodDisruptionBudget** | Two replicas and no budget means a drain can take both. |
 | **Backups** | Nothing here backs anything up. |
 
 ## Before you deploy

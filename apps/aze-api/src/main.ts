@@ -1,4 +1,4 @@
-import { Logger as PinoLogger } from 'nestjs-pino';
+import cookieParser from 'cookie-parser';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -46,8 +46,10 @@ async function bootstrap() {
   // and every request line land in the same JSON stream. The correlation
   // middleware runs first of all: it mints the requestId the pino logger and
   // the exception filter both read, and echoes it as a response header.
-  app.useLogger(app.get(PinoLogger));
   app.use(requestCorrelation);
+  // The refresh token travels as an httpOnly cookie (ADR-0009), so the
+  // refresh and logout routes need the cookie header parsed into req.cookies.
+  app.use(cookieParser());
 
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);

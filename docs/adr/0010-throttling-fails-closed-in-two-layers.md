@@ -1,6 +1,6 @@
 # Throttling is fail-closed, in two deliberate layers
 
-**Status:** accepted, not yet implemented — decided in [#72](https://github.com/aruzone/aze-mini/issues/72) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
+**Status:** accepted and implemented — decided in [#72](https://github.com/aruzone/aze-mini/issues/72) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
 
 Today the only limiter is the login brute-force guard, and its counts live in
 one process: two replicas mean two budgets, and an attacker spread across both

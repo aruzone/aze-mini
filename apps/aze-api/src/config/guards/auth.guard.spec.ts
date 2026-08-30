@@ -3,6 +3,10 @@ import { Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from '../../auth/auth.service';
+import { RefreshSessions } from '../../auth/refresh-sessions';
+import { EmailTokens } from '../../auth/email-tokens';
+import { MailSender } from '../../mail/mail-sender';
+import { REDIS_CLIENT } from '../../config/redis-client';
 import { LoginAttempts } from '../../auth/login-attempts';
 import { UsersService } from '../../users/users.service';
 import { MachineToMachine } from '../decorators/machine-to-machine.decorator';
@@ -62,6 +66,19 @@ describe('AuthGuard', () => {
         LoginAttempts,
         Reflector,
         { provide: UsersService, useValue: { findUserByEmail: jest.fn() } },
+        { provide: RefreshSessions, useValue: { issue: jest.fn(async () => 'refresh-token') } },
+        { provide: EmailTokens, useValue: { issue: jest.fn(async () => 'email-token') } },
+        { provide: MailSender, useValue: { send: jest.fn(async () => undefined) } },
+        {
+          provide: REDIS_CLIENT,
+          useValue: {
+            get: async () => null,
+            incr: async () => 1,
+            pexpire: async () => 1,
+            pttl: async () => -1,
+            del: async () => 1,
+          },
+        },
       ],
     }).compile();
 
@@ -73,11 +90,12 @@ describe('AuthGuard', () => {
   // invents, so a claim renamed on the signing side fails here instead of
   // quietly reappearing as an undefined field on the request context.
   async function issuedToken() {
-    const { accessToken } = await authService.login({
+    const { auth } = await authService.login({
       userId: 'user-1',
       email: 'ada@example.com',
+      verifiedAt: null,
     });
-    return accessToken;
+    return auth.accessToken;
   }
 
   it('exposes the claims the token actually carries', async () => {
@@ -85,7 +103,7 @@ describe('AuthGuard', () => {
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
 
-    expect(request.user).toEqual({ userId: 'user-1', email: 'ada@example.com' });
+    expect(request.user).toEqual({ userId: 'user-1', email: 'ada@example.com', verified: false });
   });
 
   // A key that is always undefined is worse than a missing one: it reads as a
@@ -95,7 +113,7 @@ describe('AuthGuard', () => {
 
     await guard.canActivate(contextFor(request));
 
-    expect(Object.keys(request.user ?? {})).toEqual(['userId', 'email']);
+    expect(Object.keys(request.user ?? {})).toEqual(['userId', 'email', 'verified']);
     expect(Object.values(request.user ?? {})).not.toContain(undefined);
   });
 

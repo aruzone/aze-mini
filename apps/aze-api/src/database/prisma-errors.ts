@@ -4,6 +4,7 @@ import { PrismaClientKnownRequestError } from '../../generated/prisma/runtime/li
 // https://www.prisma.io/docs/orm/reference/error-reference
 export const RECORD_NOT_FOUND = 'P2025';
 export const UNIQUE_CONSTRAINT_FAILED = 'P2002';
+export const TRANSACTION_CONFLICT = 'P2034';
 
 export function isPrismaError(
   error: unknown,

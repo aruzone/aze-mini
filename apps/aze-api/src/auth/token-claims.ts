@@ -7,10 +7,13 @@
 export type TokenClaims = {
   sub: string;
   email: string;
+  verified: boolean;
 };
 
 /** The identity AuthGuard attaches to a request, built from those claims. */
 export type AuthenticatedUser = {
   userId: string;
   email: string;
+  verified: boolean;
 };
+

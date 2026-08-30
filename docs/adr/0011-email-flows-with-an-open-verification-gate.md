@@ -1,6 +1,6 @@
 # Email flows ship as Platform, and unverified Users may sign in
 
-**Status:** accepted, not yet implemented — decided in [#78](https://github.com/aruzone/aze-mini/issues/78) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
+**Status:** accepted and implemented — decided in [#78](https://github.com/aruzone/aze-mini/issues/78) from the survey in [#69](https://github.com/aruzone/aze-mini/issues/69).
 
 Verification and password reset are the two email flows nearly every real
 product needs, and they share one token machine — so both ship as Platform

@@ -15,12 +15,65 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid(7))
-  email     String   @unique
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(uuid(7))
+  email      String    @unique
+  name       String?
+  password   String
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  refreshTokens RefreshToken[]
+  emailTokens   EmailToken[]
+}
+
+// A refresh session, one row per issued token. The token itself is never
+// stored — only the SHA-256 hash of it (ADR-0009) — so a leaked table leaks
+// nothing that can be presented. `familyId` groups the tokens one refresh
+// chain issues: rotation stays inside the family, and reuse of a rotated or
+// revoked member revokes the whole family, which is what catches a stolen
+// refresh token racing the legitimate client.
+model RefreshToken {
+  id            String    @id @default(uuid(7))
+  tokenHash     String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  familyId      String
+  createdAt     DateTime  @default(now())
+  // The hard ceiling on the chain's life, counted from this token's issue.
+  expiresAt     DateTime
+  // Sliding: renewed at every rotation. A chain unused for this long is dead
+  // even though its absolute expiry has not passed (RFC 9700 inactivity).
+  idleExpiresAt DateTime
+  // Set when this token is exchanged for a new one. A presented token that
+  // already carries one is reuse, and revokes its family.
+  rotatedAt     DateTime?
+  revokedAt     DateTime?
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// One token machine behind both email flows (ADR-0011): password reset and
+// address verification. Same rule as RefreshToken — the token is high-entropy,
+// so only its SHA-256 digest is stored. Single-use is enforced in the
+// transaction that consumes the token, and a newly issued token of a type
+// supersedes the User's previous one of the same type.
+model EmailToken {
+  id        String    @id @default(uuid(7))
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      EmailTokenType
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([userId, type])
+}
+
+enum EmailTokenType {
+  RESET
+  VERIFICATION
 }
 
 model ProductCategory {

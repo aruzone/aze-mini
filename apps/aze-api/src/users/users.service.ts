@@ -36,4 +36,21 @@ export class UsersService {
     return this.databaseService.user.findUnique({ where: { email } });
   }
 
+  /** Password must already be hashed — AuthService.resetPassword is the only caller. */
+  async updatePassword(id: string, password: string) {
+    return this.databaseService.user.update({
+      where: { id },
+      data: { password },
+      omit: withoutPassword,
+    });
+  }
+
+  async markVerified(id: string) {
+    return this.databaseService.user.update({
+      where: { id },
+      data: { verifiedAt: new Date() },
+      omit: withoutPassword,
+    });
+  }
+
 }

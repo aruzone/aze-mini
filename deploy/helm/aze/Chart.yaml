@@ -5,6 +5,6 @@ description: >-
   migrates the database ahead of them. Demo — read it, then make it yours.
 type: application
 # The chart's own version, bumped when the templates change.
-version: 0.2.0
+version: 0.3.0
 # What it deploys by default when no image tag is given.
 appVersion: "v0.2.0"

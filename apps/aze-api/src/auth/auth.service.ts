@@ -18,6 +18,7 @@ import { LoginAttempts } from './login-attempts';
 import { MAX_PASSWORD_BYTES, hashPassword } from './password';
 import { TokenClaims } from './token-claims';
 import { RefreshSessions } from './refresh-sessions';
+import { SESSION_REFUSED } from './refresh-cookie';
 import { EmailTokens } from './email-tokens';
 import { MailSender } from '../mail/mail-sender';
 import { appConfig } from '../config/configuration';
@@ -159,20 +160,11 @@ export class AuthService {
     return { auth, refreshToken };
   }
 
-  /** Exchange a presented refresh cookie for a rotated session. */
-  async refresh(presented: string): Promise<{ userId: string; refreshToken: string }> {
-    return this.refreshSessions.rotate(presented);
-  }
-
-  async logout(presented: string): Promise<void> {
-    await this.refreshSessions.revokeFamily(presented);
-  }
-
   /** Signs a fresh access token for a User the refresh session already verified. */
   async issueAccessTokenFor(userId: string): Promise<AuthResponse> {
     const user = await this.usersService.findOne(userId);
     if (!user) {
-      throw new UnauthorizedException('The session is no longer valid. Sign in again.');
+      throw new UnauthorizedException(SESSION_REFUSED);
     }
 
     const payload: TokenClaims = {
@@ -188,26 +180,32 @@ export class AuthService {
   }
   /**
    * Enumeration-safe end to end (ADR-0011): the answer is identical in wording
-   * and timing whether or not the address is registered. The timing half is
-   * the dummy bcrypt hash — the real path spends its time in bcrypt, so the
-   * miss path spends the same.
+   * and timing whether or not the address is registered.
+   *
+   * The timing half is a bcrypt both branches pay, not one. Spending it only
+   * on the miss made the two paths differ by a whole hash in the other
+   * direction — a registered address answered faster, which says just as much
+   * as answering slower. What is left is the token write, microseconds beside
+   * it. The send is deliberately not awaited for the same reason: an SMTP
+   * round trip is seconds no dummy work can match.
    */
   async forgotPassword(email: string): Promise<AuthNotice> {
     const normalized = normalizeEmail(email);
     const user = await this.usersService.findUserByEmail(normalized);
 
+    // The cost floor, paid before the branch so the branch cannot be timed.
+    await hashPassword('timing equalizer');
+
     if (user) {
       const token = await this.emailTokens.issue(user.id, 'RESET');
       const resetUrl = `${appConfig().appOrigin}/reset?token=${token}`;
-      await this.mailSender.send({
-        to: user.email,
-        subject: 'Reset your password',
-        text: `Someone asked to reset your password. Open this link to choose a new one:\n\n${resetUrl}\n\nThe link works for one hour. If it was not you, ignore this email.`,
-      });
-    } else {
-      // Same work, same time, no email: the caller learns nothing about which
-      // addresses hold accounts.
-      await hashPassword('timing equalizer');
+      void this.mailSender
+        .send({
+          to: user.email,
+          subject: 'Reset your password',
+          text: `Someone asked to reset your password. Open this link to choose a new one:\n\n${resetUrl}\n\nThe link works for one hour. If it was not you, ignore this email.`,
+        })
+        .catch(() => undefined);
     }
 
     return {

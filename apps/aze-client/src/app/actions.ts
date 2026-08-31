@@ -2,12 +2,27 @@
 
 import { AuthResponse, LoginRequest } from '@aze-mini/platform-contracts';
 import { redirect } from 'next/navigation';
-import { ApiError, apiFetch, refreshSession, revokeSession } from '../lib/api';
-import {
-  currentRefreshToken,
-  endSession,
-  startSession,
-} from '../lib/session';
+import { ApiError, apiFetch, refreshTokenFrom, revokeSession } from '../lib/api';
+import { currentRefreshToken, endSession, startSession } from '../lib/session';
+
+/** What every form on a public auth page shows: one message, or one refusal. */
+export type NoticeState = { error?: string; message?: string };
+
+/**
+ * The one refusal shape these actions answer with. A refusal the API
+ * described is a message the form renders; anything else is a fault, and
+ * rethrowing it is what lets the error boundary see it.
+ */
+async function notice(call: () => Promise<{ message: string }>): Promise<NoticeState> {
+  try {
+    return { message: (await call()).message };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+}
 
 export type LoginState = { error?: string };
 
@@ -34,11 +49,7 @@ export async function login(_state: LoginState, form: FormData): Promise<LoginSt
       // the body. Capture it here and store it in the client's own httpOnly
       // cookie — this server is the browser's cookie jar.
       onResponse: (response) => {
-        refreshToken = response.headers
-          .getSetCookie()
-          .map((cookie) => cookie.split(';')[0])
-          .find((pair) => pair.startsWith('aze_refresh='))
-          ?.split('=')[1];
+        refreshToken = refreshTokenFrom(response);
       },
     });
     await startSession(session.accessToken, refreshToken ?? '');
@@ -72,49 +83,22 @@ export async function logout(): Promise<void> {
   redirect('/login');
 }
 
-/**
- * The one silent-rotation flow: present the stored refresh token, store the
- * fresh pair it answers with. Middleware does this on navigation; actions do
- * it when a call comes back 401.
- */
-export async function silentRefresh(): Promise<boolean> {
-  const refreshToken = await currentRefreshToken();
-  if (!refreshToken) {
-    return false;
-  }
-
-  const result = await refreshSession(refreshToken);
-  if (!result) {
-    await endSession();
-    return false;
-  }
-
-  await startSession(result.auth.accessToken, result.refreshToken ?? refreshToken);
-  return true;
-}
-
-export type VerifyEmailState = { error?: string; message?: string };
+export type VerifyEmailState = NoticeState;
 
 /** Exchanges the token from the verification email at the API (ADR-0011). */
 export async function verifyEmail(
   _state: VerifyEmailState,
   form: FormData,
 ): Promise<VerifyEmailState> {
-  try {
-    const notice = await apiFetch<{ message: string }>('/auth/verify-email', {
+  return notice(() =>
+    apiFetch<{ message: string }>('/auth/verify-email', {
       method: 'POST',
       body: { token: String(form.get('token') ?? '') },
-    });
-    return { message: notice.message };
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return { error: error.message };
-    }
-    throw error;
-  }
+    }),
+  );
 }
 
-export type ResetPasswordState = { error?: string; message?: string };
+export type ResetPasswordState = NoticeState;
 
 /** Writes the new password and revokes every session the User had (ADR-0011). */
 export async function resetPassword(
@@ -126,21 +110,15 @@ export async function resetPassword(
     return { error: 'The password must be at least 8 characters long.' };
   }
 
-  try {
-    const notice = await apiFetch<{ message: string }>('/auth/reset-password', {
+  return notice(() =>
+    apiFetch<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: { token: String(form.get('token') ?? ''), password },
-    });
-    return { message: notice.message };
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return { error: error.message };
-    }
-    throw error;
-  }
+    }),
+  );
 }
 
-export type ForgotPasswordState = { error?: string; message?: string };
+export type ForgotPasswordState = NoticeState;
 
 /**
  * Asks the API to send a reset link. The answer is the same whether or not
@@ -150,16 +128,10 @@ export async function forgotPassword(
   _state: ForgotPasswordState,
   form: FormData,
 ): Promise<ForgotPasswordState> {
-  try {
-    const notice = await apiFetch<{ message: string }>('/auth/forgot-password', {
+  return notice(() =>
+    apiFetch<{ message: string }>('/auth/forgot-password', {
       method: 'POST',
       body: { email: String(form.get('email') ?? '') },
-    });
-    return { message: notice.message };
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return { error: error.message };
-    }
-    throw error;
-  }
+    }),
+  );
 }

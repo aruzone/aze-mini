@@ -6,15 +6,19 @@ export const SESSION_COOKIE = 'aze_session';
 /** The one name the refresh token is stored under. Same value the API sets. */
 export const REFRESH_COOKIE = 'aze_refresh';
 
-/** The access-token life, matching the API's `ACCESS_TOKEN_TTL_SECONDS` default. */
-export const ACCESS_TOKEN_TTL_SECONDS = Number(
-  process.env.AZE_ACCESS_TOKEN_TTL_SECONDS || 15 * 60,
-);
+/**
+ * The cookie lifetimes, matching the API's `ACCESS_TOKEN_TTL_SECONDS` and
+ * `REFRESH_TOKEN_TTL_SECONDS` defaults. Read at request time rather than at
+ * module load, for the same reason `apiUrl()` is: a value captured when the
+ * bundle is first imported is a value one image cannot vary by environment.
+ */
+export function accessTokenTtlSeconds(): number {
+  return Number(process.env.AZE_ACCESS_TOKEN_TTL_SECONDS || 15 * 60);
+}
 
-/** The refresh-session life, matching the API's `REFRESH_TOKEN_TTL_SECONDS` default. */
-export const REFRESH_TOKEN_TTL_SECONDS = Number(
-  process.env.AZE_REFRESH_TOKEN_TTL_SECONDS || 30 * 24 * 60 * 60,
-);
+export function refreshTokenTtlSeconds(): number {
+  return Number(process.env.AZE_REFRESH_TOKEN_TTL_SECONDS || 30 * 24 * 60 * 60);
+}
 
 /**
  * How the access token is stored. `httpOnly` is the point of the whole
@@ -33,7 +37,7 @@ export function sessionCookie(token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: ACCESS_TOKEN_TTL_SECONDS,
+    maxAge: accessTokenTtlSeconds(),
   };
 }
 
@@ -52,7 +56,7 @@ export function refreshCookie(token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    maxAge: refreshTokenTtlSeconds(),
   };
 }
 

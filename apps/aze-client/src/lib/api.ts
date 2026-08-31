@@ -26,6 +26,20 @@ export function apiUrl(): string {
   return 'http://localhost:3030/api';
 }
 
+/**
+ * The rotated refresh token the API sets, read off a response's `Set-Cookie`
+ * headers. The API deliberately never puts a refresh token in a body, so
+ * every caller that stores one reads it here rather than walking the headers
+ * itself.
+ */
+export function refreshTokenFrom(response: Response): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(';')[0])
+    .find((pair) => pair.startsWith(`${REFRESH_COOKIE}=`))
+    ?.split('=')[1];
+}
+
 /** A refusal the API described, carrying the status it answered with. */
 export class ApiError extends Error {
   constructor(
@@ -106,13 +120,7 @@ export async function refreshSession(
   }
 
   const auth = (await response.json()) as AuthResponse;
-  const setCookies = response.headers.getSetCookie();
-  const rotated = setCookies
-    .map((cookie) => cookie.split(';')[0])
-    .find((pair) => pair.startsWith(`${REFRESH_COOKIE}=`))
-    ?.split('=')[1];
-
-  return { auth, refreshToken: rotated };
+  return { auth, refreshToken: refreshTokenFrom(response) };
 }
 
 /**

@@ -1,8 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { appConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
 import { isPrismaError, TRANSACTION_CONFLICT } from '../database/prisma-errors';
+import { hashToken, mintToken } from './opaque-token';
+import { SESSION_REFUSED } from './refresh-cookie';
 
 /**
  * The refresh-token machine (ADR-0009): issue → rotate → reuse-detect →
@@ -46,10 +48,10 @@ export class RefreshSessions {
 
   /** A fresh family, for a fresh sign-in. Returns the token exactly once. */
   async issue(userId: string): Promise<string> {
-    const token = this.mint();
+    const token = mintToken();
     await this.databaseService.refreshToken.create({
       data: {
-        tokenHash: this.hash(token),
+        tokenHash: hashToken(token),
         userId,
         familyId: randomUUID(),
         expiresAt: this.absoluteExpiry(),
@@ -80,7 +82,7 @@ export class RefreshSessions {
       return await this.databaseService.$transaction(
         async (tx) => {
           const row = await tx.refreshToken.findUnique({
-            where: { tokenHash: this.hash(presented) },
+            where: { tokenHash: hashToken(presented) },
           });
           if (!row) {
             throw this.refused();
@@ -104,10 +106,10 @@ export class RefreshSessions {
             throw new Replayed(row.familyId);
           }
 
-          const refreshToken = this.mint();
+          const refreshToken = mintToken();
           await tx.refreshToken.create({
             data: {
-              tokenHash: this.hash(refreshToken),
+              tokenHash: hashToken(refreshToken),
               userId: row.userId,
               familyId: row.familyId,
               expiresAt: row.expiresAt,
@@ -131,7 +133,7 @@ export class RefreshSessions {
       // replay, and the family dies the same way.
       if (isPrismaError(error, TRANSACTION_CONFLICT)) {
         const row = await this.databaseService.refreshToken.findUnique({
-          where: { tokenHash: this.hash(presented) },
+          where: { tokenHash: hashToken(presented) },
         });
         if (row) {
           await this.revokeFamilyId(row.familyId);
@@ -145,7 +147,7 @@ export class RefreshSessions {
   /** Logout: revoke the family the presented token belongs to. */
   async revokeFamily(presented: string): Promise<void> {
     const row = await this.databaseService.refreshToken.findUnique({
-      where: { tokenHash: this.hash(presented) },
+      where: { tokenHash: hashToken(presented) },
     });
     if (!row) {
       // Revoking nothing is not a success: a caller presenting a token that
@@ -170,14 +172,6 @@ export class RefreshSessions {
     });
   }
 
-  private mint(): string {
-    return randomBytes(32).toString('base64url');
-  }
-
-  private hash(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
   private absoluteExpiry(): Date {
     return new Date(Date.now() + this.absoluteTtlSeconds * 1000);
   }
@@ -187,6 +181,6 @@ export class RefreshSessions {
   }
 
   private refused(): UnauthorizedException {
-    return new UnauthorizedException('The session is no longer valid. Sign in again.');
+    return new UnauthorizedException(SESSION_REFUSED);
   }
 }

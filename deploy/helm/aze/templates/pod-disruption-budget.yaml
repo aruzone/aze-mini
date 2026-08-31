@@ -1,18 +1,27 @@
 {{- if .Values.podDisruptionBudget.enabled }}
+{{- range $component := list "api" "client" }}
+---
 # Two replicas and no budget means a node drain can take both (the row this
 # replaces in the README's "leaves to you" table). minAvailable: 1 is the
 # floor, not a promise: it says a voluntary disruption may never take the last
 # pod of either app. A drain that cannot satisfy it waits.
+#
+# One budget per component, deliberately: a single budget selecting both
+# Deployments would be satisfied by any one pod in the release, so a drain
+# could still take every API pod while a client pod held the count up.
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "aze.fullname" . }}
+  name: {{ include "aze.fullname" $ }}-{{ $component }}
   labels:
-    {{- include "aze.labels" . | nindent 4 }}
+    {{- include "aze.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "aze.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ include "aze.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+{{- end }}
 {{- end }}

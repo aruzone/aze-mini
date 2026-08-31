@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -19,6 +19,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
  * so a Redis that is down must surface as a refusal, never as silence.
  */
 const redisFactory = (configService: ConfigService): Redis => {
+  const logger = new Logger('RedisClient');
   const url = configService.get<string>('redisUrl') as string;
   const client = new Redis(url, {
     // Without this, a command issued while the connection is down waits in an
@@ -38,12 +39,10 @@ const redisFactory = (configService: ConfigService): Redis => {
       return;
     }
     lastLoggedAt = now;
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        msg: `Redis at ${url} is not answering; throttled routes answer 503 until it recovers`,
-        error: error.message,
-      }),
+    // Through Nest's logger, so this line lands in the same JSON stream as
+    // every other one (ADR-0008) rather than beside it.
+    logger.warn(
+      `Redis at ${url} is not answering (${error.message}); throttled routes answer 503 until it recovers`,
     );
   });
 

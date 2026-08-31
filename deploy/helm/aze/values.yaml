@@ -68,9 +68,10 @@ migrate:
     digest: ""
     pullPolicy: IfNotPresent
 
-# One budget over both Deployments: a voluntary disruption — a node drain, an
-# upgrade — may never take the last pod of either app. Default on; a cluster
-# that manages disruptions its own way can turn it off here.
+# One budget per Deployment: a voluntary disruption — a node drain, an upgrade
+# — may never take the last pod of either app. One budget spanning both would
+# count a client pod towards the API's floor. Default on; a cluster that
+# manages disruptions its own way can turn it off here.
 podDisruptionBudget:
   enabled: true
 

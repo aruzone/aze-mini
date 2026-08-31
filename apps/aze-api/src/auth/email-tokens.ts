@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
 import { appConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
+import { hashToken, mintToken } from './opaque-token';
 
 /** The defaults behind the environment-configurable lifetimes (ADR-0011). */
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60;
@@ -12,10 +12,8 @@ export type EmailTokenType = 'RESET' | 'VERIFICATION';
 /**
  * The one token machine behind both email flows (ADR-0011).
  *
- * Tokens are opaque 32-byte CSPRNG strings, base64url-encoded, stored as a
- * SHA-256 digest — the token is high-entropy, so an unsalted fast hash cannot
- * be brute-forced from a leaked table, and bcrypt's cost would buy nothing on
- * a hot public endpoint. Single-use is enforced in the same transaction that
+ * Tokens are minted and hashed by `opaque-token.ts`, the shape this shares
+ * with the refresh machine. Single-use is enforced in the same transaction that
  * flips the state: the consume write only lands on a still-unused, unexpired
  * token, and the count of that write is the verdict. A newly issued token of
  * a type supersedes the User's previous unused one of the same type, which
@@ -27,7 +25,7 @@ export class EmailTokens {
 
   /** Returns the raw token exactly once — the caller's only chance to email it. */
   async issue(userId: string, type: EmailTokenType): Promise<string> {
-    const token = randomBytes(32).toString('base64url');
+    const token = mintToken();
     const ttlSeconds = this.ttlFor(type);
 
     await this.databaseService.$transaction(async (tx) => {
@@ -38,7 +36,7 @@ export class EmailTokens {
       });
       await tx.emailToken.create({
         data: {
-          tokenHash: this.hash(token),
+          tokenHash: hashToken(token),
           userId,
           type,
           expiresAt: new Date(Date.now() + ttlSeconds * 1000),
@@ -55,7 +53,7 @@ export class EmailTokens {
       const now = new Date();
       const claimed = await tx.emailToken.updateMany({
         where: {
-          tokenHash: this.hash(token),
+          tokenHash: hashToken(token),
           type,
           usedAt: null,
           expiresAt: { gt: now },
@@ -68,7 +66,7 @@ export class EmailTokens {
       }
 
       const row = await tx.emailToken.findUnique({
-        where: { tokenHash: this.hash(token) },
+        where: { tokenHash: hashToken(token) },
       });
       return row?.userId ?? null;
     });
@@ -79,9 +77,5 @@ export class EmailTokens {
     return type === 'RESET'
       ? config.emailResetTtlSeconds
       : config.emailVerificationTtlSeconds;
-  }
-
-  private hash(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
   }
 }

@@ -9,7 +9,6 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ApiRefusal } from '../config/decorators/api-refusal.decorator';
@@ -17,7 +16,13 @@ import { Public } from '../config/decorators/public.decorator';
 import type { Request, Response } from 'express';
 import { appConfig } from '../config/configuration';
 import { AuthService } from './auth.service';
-import { REFRESH_COOKIE, clearRefreshCookie, setRefreshCookie } from './refresh-cookie';
+import { RefreshSessions } from './refresh-sessions';
+import {
+  REFRESH_COOKIE,
+  SESSION_REFUSED,
+  clearRefreshCookie,
+  setRefreshCookie,
+} from './refresh-cookie';
 import { AuthResponse } from './auth.response';
 import { AuthNoticeResponse } from './auth-notice.response';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -30,7 +35,7 @@ import { RegisterDto } from './dto/register.dto';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService,
+    private readonly refreshSessions: RefreshSessions,
   ) {}
 
   // Registration stays open (ADR-0010), but with a tighter per-source
@@ -81,19 +86,15 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'A fresh access token for the same User', type: AuthResponse })
-  @ApiRefusal(HttpStatus.UNAUTHORIZED, 'The session is no longer valid. Sign in again.')
+  @ApiRefusal(HttpStatus.UNAUTHORIZED, SESSION_REFUSED)
   @Post('refresh')
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) reply: Response,
   ): Promise<AuthResponse> {
-    const presented = request.cookies?.[REFRESH_COOKIE];
-    if (!presented) {
-      clearRefreshCookie(reply);
-      throw new UnauthorizedException('The session is no longer valid. Sign in again.');
-    }
+    const presented = this.presentedRefreshToken(request, reply);
 
-    const { userId, refreshToken } = await this.authService.refresh(presented);
+    const { userId, refreshToken } = await this.refreshSessions.rotate(presented);
     this.setCookie(reply, refreshToken);
     return await this.authService.issueAccessTokenFor(userId);
   }
@@ -104,19 +105,15 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'The session family was revoked', type: AuthNoticeResponse })
-  @ApiRefusal(HttpStatus.UNAUTHORIZED, 'The session is no longer valid. Sign in again.')
+  @ApiRefusal(HttpStatus.UNAUTHORIZED, SESSION_REFUSED)
   @Post('logout')
   async logout(
     @Req() request: Request,
     @Res({ passthrough: true }) reply: Response,
   ): Promise<{ message: string }> {
-    const presented = request.cookies?.[REFRESH_COOKIE];
-    if (!presented) {
-      clearRefreshCookie(reply);
-      throw new UnauthorizedException('The session is no longer valid. Sign in again.');
-    }
+    const presented = this.presentedRefreshToken(request, reply);
 
-    await this.authService.logout(presented);
+    await this.refreshSessions.revokeFamily(presented);
     clearRefreshCookie(reply);
     return { message: 'Signed out' };
   }
@@ -155,11 +152,23 @@ export class AuthController {
     return { message: notice.message };
   }
 
+  // Both cookie-bearing routes refuse the same way when nothing was
+  // presented, and both clear the stale cookie on the way out so a browser
+  // holding a dead token stops sending it.
+  private presentedRefreshToken(request: Request, reply: Response): string {
+    const presented = request.cookies?.[REFRESH_COOKIE];
+    if (!presented) {
+      clearRefreshCookie(reply);
+      throw new UnauthorizedException(SESSION_REFUSED);
+    }
+    return presented;
+  }
+
+  // Read off appConfig, the same source the @Throttle above reads: these are
+  // deployment configuration the startup check has already validated, and a
+  // decorator cannot reach an injected ConfigService anyway. One source here
+  // keeps the class from holding two answers to the same question.
   private setCookie(reply: Response, refreshToken: string): void {
-    setRefreshCookie(
-      reply,
-      refreshToken,
-      this.configService.get<number>('refreshTokenTtlSeconds') as number,
-    );
+    setRefreshCookie(reply, refreshToken, appConfig().refreshTokenTtlSeconds);
   }
 }

@@ -73,22 +73,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // The nonce rides on the request for Next to stamp on its scripts, and the
-  // policy itself rides on the response for the browser to enforce.
+  // The policy rides on the request for Next to read the nonce out of and
+  // stamp on the scripts it injects, and on the response for the browser to
+  // enforce. One header, both directions — nothing else needs to carry it.
   const nonce = crypto.randomUUID().replace(/-/g, '');
   const csp = contentSecurityPolicy(nonce);
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('content-security-policy', csp);
 
-  if (refreshed) {
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
-    responseCookies.forEach((cookie) => response.cookies.set(cookie));
-    response.headers.set('content-security-policy', csp);
-    return response;
-  }
-
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  responseCookies.forEach((cookie) => response.cookies.set(cookie));
   response.headers.set('content-security-policy', csp);
   return response;
 }

@@ -26,7 +26,7 @@ spec:
     # A tag or a commit, not a branch: a branch means the cluster's contents
     # change when someone merges, which is not a promotion anyone decided to
     # make. (Staging tracks main on purpose — see application-staging.yaml.)
-    targetRevision: v0.2.0
+    targetRevision: v0.3.0
     path: deploy/helm/aze
 
     helm:

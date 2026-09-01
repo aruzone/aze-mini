@@ -21,34 +21,131 @@ const PRODUCTS = [
   {
     id: '0195f0e1-0000-7000-8000-000000000101',
     name: 'Field Notebook',
-    description: 'Pocket sized, squared paper',
-    price: 12.5,
+    description: 'Lay-flat dot grid pages with a linen-wrapped cover.',
+    price: 18,
     category: 'Stationery',
-    tags: ['paper', 'everyday'],
+    tags: ['paper', 'everyday', 'portable'],
     reviews: [
-      { id: '0195f0e1-0000-7000-8000-000000000201', rating: 5, comment: 'Survives a rucksack' },
-      { id: '0195f0e1-0000-7000-8000-000000000202', rating: 4, comment: 'Wish it were A5' },
+      {
+        id: '0195f0e1-0000-7000-8000-000000000201',
+        rating: 5,
+        comment: 'The binding stays flat through a full page of notes.',
+      },
+      {
+        id: '0195f0e1-0000-7000-8000-000000000202',
+        rating: 4,
+        comment: 'Excellent paper; a ribbon marker would make it perfect.',
+      },
     ],
   },
   {
     id: '0195f0e1-0000-7000-8000-000000000102',
-    name: 'Fountain Pen',
-    description: 'Medium nib, converter filled',
-    price: 45,
+    name: 'Meridian Fountain Pen',
+    description: 'A balanced brass pen with a smooth medium nib.',
+    price: 58,
     category: 'Stationery',
-    tags: ['everyday'],
+    tags: ['everyday', 'portable', 'focused-work'],
     reviews: [
-      { id: '0195f0e1-0000-7000-8000-000000000203', rating: 5, comment: 'Writes wet, dries fast' },
+      {
+        id: '0195f0e1-0000-7000-8000-000000000203',
+        rating: 5,
+        comment: 'Comfortable through long planning sessions.',
+      },
+      {
+        id: '0195f0e1-0000-7000-8000-000000000204',
+        rating: 4,
+        comment: 'A reassuring weight without feeling bulky.',
+      },
     ],
   },
   {
     id: '0195f0e1-0000-7000-8000-000000000103',
-    name: 'Desk Lamp',
-    description: 'Warm LED, weighted base',
-    price: 89.99,
+    name: 'Arc Task Lamp',
+    description: 'Dimmable warm-to-cool light with a compact weighted base.',
+    price: 129,
+    category: 'Lighting',
+    tags: ['lighting', 'focused-work', 'adjustable'],
+    reviews: [
+      {
+        id: '0195f0e1-0000-7000-8000-000000000205',
+        rating: 5,
+        comment: 'Bright enough for detail work without harsh glare.',
+      },
+      {
+        id: '0195f0e1-0000-7000-8000-000000000206',
+        rating: 4,
+        comment: 'The dimmer remembers the last setting.',
+      },
+    ],
+  },
+  {
+    id: '0195f0e1-0000-7000-8000-000000000104',
+    name: 'Wool Felt Desk Mat',
+    description: 'Soft merino felt that defines the workspace and protects the desk.',
+    price: 64,
     category: 'Workspace',
-    tags: ['lighting'],
+    tags: ['focused-work', 'natural-materials'],
+    reviews: [
+      {
+        id: '0195f0e1-0000-7000-8000-000000000207',
+        rating: 5,
+        comment: 'Quiet under the keyboard and generous without taking over.',
+      },
+    ],
+  },
+  {
+    id: '0195f0e1-0000-7000-8000-000000000105',
+    name: 'Oak Monitor Riser',
+    description: 'Solid oak elevation with room to stow a keyboard below.',
+    price: 119,
+    category: 'Workspace',
+    tags: ['organization', 'natural-materials', 'focused-work'],
+    reviews: [
+      {
+        id: '0195f0e1-0000-7000-8000-000000000208',
+        rating: 5,
+        comment: 'Puts the screen at the right height and clears visual clutter.',
+      },
+    ],
+  },
+  {
+    id: '0195f0e1-0000-7000-8000-000000000106',
+    name: 'Cable Dock Set',
+    description: 'Weighted magnetic anchors that keep charging leads within reach.',
+    price: 24,
+    category: 'Organization',
+    tags: ['organization', 'everyday'],
     reviews: [],
+  },
+  {
+    id: '0195f0e1-0000-7000-8000-000000000107',
+    name: 'Commuter Tech Pouch',
+    description: 'A structured recycled-canvas case for chargers, pens and adapters.',
+    price: 48,
+    category: 'Workday Carry',
+    tags: ['organization', 'portable', 'everyday'],
+    reviews: [
+      {
+        id: '0195f0e1-0000-7000-8000-000000000209',
+        rating: 4,
+        comment: 'Small enough for my tote and everything has a place.',
+      },
+    ],
+  },
+  {
+    id: '0195f0e1-0000-7000-8000-000000000108',
+    name: 'Ceramic Catchall Tray',
+    description: 'A low-profile stoneware tray for keys, clips and daily essentials.',
+    price: 32,
+    category: 'Organization',
+    tags: ['organization', 'natural-materials', 'everyday'],
+    reviews: [
+      {
+        id: '0195f0e1-0000-7000-8000-000000000210',
+        rating: 5,
+        comment: 'Looks composed on the desk and keeps small items together.',
+      },
+    ],
   },
 ];
 
@@ -98,15 +195,16 @@ export async function seedDemo(db: PrismaClient) {
     });
 
     for (const review of product.reviews) {
+      // Reconnect on update so a fixed review id cannot retain a stale product link.
+      const reviewFields = {
+        rating: review.rating,
+        comment: review.comment,
+        product: { connect: { id: product.id } },
+      };
       await db.review.upsert({
         where: { id: review.id },
-        update: { rating: review.rating, comment: review.comment },
-        create: {
-          id: review.id,
-          rating: review.rating,
-          comment: review.comment,
-          product: { connect: { id: product.id } },
-        },
+        update: reviewFields,
+        create: { id: review.id, ...reviewFields },
       });
     }
   }

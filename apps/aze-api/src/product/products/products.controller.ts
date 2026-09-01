@@ -10,6 +10,8 @@ import { ApiRefusal } from '../../config/decorators/api-refusal.decorator';
 import { MachineToMachine } from '../../config/decorators/machine-to-machine.decorator';
 import { IsPositivePipe } from '../../config/pipes/is-positive.pipe';
 import { CACHE_STATUS_HEADER, cacheStatus } from '../../cache/cache-status';
+import { CurrentUser } from '../../config/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../auth/token-claims';
 
 // Whether a response came out of Redis is part of a cached route's contract,
 // so the document says so rather than leaving a caller to discover it.
@@ -29,7 +31,7 @@ export class ProductsController {
   @ApiRefusal(HttpStatus.NOT_FOUND, 'No such category, or no such tag')
   @Post()
   create(@Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(createProductDto);
+    return this.productsService.create(createProductDto, null);
   }
 
   // Both have defaults, and the union type erases to Object, so the document
@@ -67,14 +69,18 @@ export class ProductsController {
   @ApiOkResponse({ description: 'The updated Product', type: Product })
   @ApiRefusal(HttpStatus.NOT_FOUND, 'No such Product, category or tag')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productsService.update(id, updateProductDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.productsService.update(id, updateProductDto, user.userId);
   }
 
   @ApiOkResponse({ description: 'The deleted Product', type: Product })
   @ApiRefusal(HttpStatus.CONFLICT, 'Reviews still point at this Product')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.productsService.remove(id, user.userId);
   }
 }

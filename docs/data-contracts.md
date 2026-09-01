@@ -23,6 +23,31 @@ FIELDS:
 
 ---
 
+### AuditEvent
+
+```
+NAME:     AuditEvent
+TABLE:    audit_events
+LOCATION: apps/aze-api/prisma/schema.prisma
+
+FIELDS:
+- id          String    required  UUID v7, composite primary key with occurredAt
+- occurredAt  DateTime  required  auto-set on create, monthly partition key
+- event       String    required  name from apps/aze-api/src/audit/audit-events.ts
+- actorUserId String    optional  acting User id, or an unlinked random pseudonym after erasure
+- subjectType String    required  model or operation type
+- subjectId   String    required  id within subjectType
+- details     Json      optional  selected non-secret facts, never request bodies or source/device data
+```
+
+The migration creates the partitioned parent, current and next calendar-month
+partitions, and the two maintenance functions. `actorUserId` deliberately has
+no foreign key: erasure replaces it without retaining a mapping back to the User.
+The model has no wire contract and no route (ADR-0012).
+
+---
+
+
 ### ProductCategory
 
 ```

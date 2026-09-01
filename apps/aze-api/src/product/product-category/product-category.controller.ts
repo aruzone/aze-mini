@@ -5,6 +5,8 @@ import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { ProductCategory } from './product-category.response';
 import { ApiRefusal } from '../../config/decorators/api-refusal.decorator';
+import { CurrentUser } from '../../config/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../auth/token-claims';
 
 @Controller('categories')
 export class ProductCategoryController {
@@ -13,8 +15,11 @@ export class ProductCategoryController {
   @ApiCreatedResponse({ description: 'The created category', type: ProductCategory })
   @ApiRefusal(HttpStatus.CONFLICT, 'That name is already taken')
   @Post()
-  create(@Body() createProductCategoryDto: CreateProductCategoryDto) {
-    return this.productCategoryService.create(createProductCategoryDto);
+  create(
+    @Body() createProductCategoryDto: CreateProductCategoryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.productCategoryService.create(createProductCategoryDto, user.userId);
   }
 
   @ApiOkResponse({ description: 'Every category', type: [ProductCategory] })
@@ -32,14 +37,18 @@ export class ProductCategoryController {
   @ApiOkResponse({ description: 'The updated category', type: ProductCategory })
   @ApiRefusal(HttpStatus.CONFLICT, 'That name is already taken')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductCategoryDto: UpdateProductCategoryDto) {
-    return this.productCategoryService.update(+id, updateProductCategoryDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateProductCategoryDto: UpdateProductCategoryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.productCategoryService.update(+id, updateProductCategoryDto, user.userId);
   }
 
   @ApiOkResponse({ description: 'The deleted category', type: ProductCategory })
   @ApiRefusal(HttpStatus.CONFLICT, 'Products are still in this category')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productCategoryService.remove(+id);
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.productCategoryService.remove(+id, user.userId);
   }
 }

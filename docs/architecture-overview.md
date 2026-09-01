@@ -29,6 +29,7 @@ Every route the API serves is listed in [interfaces.md](interfaces.md), which `n
 | Entry point | `src/main.ts`                   | Check the environment and refuse to start if it is incomplete, then bootstrap Nest: global prefix, proxy trust, security headers, CORS, documentation, validation pipe, exception filter |
 | Root module | `src/app/app.module.ts`         | Wire the feature modules together and register `AuthGuard` globally on `APP_GUARD`                                                                                                       |
 | Auth        | `src/auth/`                     | Registration, login, bcryptjs hashing, JWT signing, and the failed-login throttle                                                                                                        |
+| Audit       | `src/audit/`                    | Platform append-only event vocabulary and writer; mutations append through their Prisma transaction, while auth and guard events fail loud without changing the response (ADR-0012) |
 | Users       | `src/users/`                    | `GET /users/me` only — reads the User the token identifies, never returning the password field. Also the email lookup `AuthService` validates a login against                            |
 | Products    | `src/product/products/`         | Demo: product CRUD, with the two read routes cached                                                                                                                                      |
 | Categories  | `src/product/product-category/` | Demo: category management                                                                                                                                                                |
@@ -72,7 +73,7 @@ Both are plain types depending on nothing, so either application can declare its
 ### Backend Startup
 
 1. `configurationProblems()` names every missing or placeholder environment variable at once; if there are any, `main.ts` logs them all and exits before Prisma connects
-2. `NestFactory.create(AppModule)` builds the application; `AppModule` loads `ConfigModule` (global), `CacheModule` (global), `MetricsModule`, `DatabaseModule`, `AuthModule`, `UsersModule` and `ProductsModule`
+2. `NestFactory.create(AppModule)` builds the application; `AppModule` loads `ConfigModule` (global), `CacheModule` (global), `AuditModule` (global), `MetricsModule`, `DatabaseModule`, `AuthModule`, `UsersModule` and `ProductsModule`
 3. Nest's logger is swapped for pino, so startup lines and every request line land in one JSON stream, and the correlation middleware mints the per-request id echoed as `X-Request-Id`
 4. Global prefix `/api` is set, and `trust proxy` is set from `TRUST_PROXY` — what `@Ip()` returns, and so what login throttling counts
 5. Helmet security headers are registered, **before** the documentation route, because Express runs handlers in the order they were added

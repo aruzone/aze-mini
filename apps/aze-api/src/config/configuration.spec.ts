@@ -12,6 +12,7 @@ describe('appConfig', () => {
     delete process.env.REDIS_URL;
     delete process.env.CORS_ORIGIN;
     delete process.env.TRUST_PROXY;
+    delete process.env.AUDIT_RETENTION_MONTHS;
   });
 
   afterAll(() => {
@@ -177,6 +178,18 @@ describe('appConfig', () => {
       });
     });
   });
+
+  describe('auditRetentionMonths', () => {
+    it('keeps twelve months by default', () => {
+      expect(appConfig().auditRetentionMonths).toBe(12);
+    });
+
+    it('takes a positive whole month count from the environment', () => {
+      process.env.AUDIT_RETENTION_MONTHS = '24';
+
+      expect(appConfig().auditRetentionMonths).toBe(24);
+    });
+  });
 });
 
 describe('an optional variable nobody can act on', () => {
@@ -266,6 +279,14 @@ describe('configurationProblems', () => {
 
     expect(configurationProblems()).toEqual([
       'JWT_SECRET is still the placeholder from .env.example. Replace it.',
+    ]);
+  });
+
+  it('rejects a partial audit retention value', () => {
+    process.env.AUDIT_RETENTION_MONTHS = '12months';
+
+    expect(configurationProblems()).toEqual([
+      'AUDIT_RETENTION_MONTHS is "12months", which is not a positive whole number. See apps/aze-api/.env.example.',
     ]);
   });
 

@@ -12,6 +12,7 @@ import { UsersService } from '../../users/users.service';
 import { MachineToMachine } from '../decorators/machine-to-machine.decorator';
 import { Public } from '../decorators/public.decorator';
 import { AuthGuard } from './auth.guard';
+import { AuditService } from '../../audit/audit.service';
 
 const JWT_SECRET = 'test-secret';
 
@@ -69,6 +70,7 @@ describe('AuthGuard', () => {
         { provide: RefreshSessions, useValue: { issue: jest.fn(async () => 'refresh-token') } },
         { provide: EmailTokens, useValue: { issue: jest.fn(async () => 'email-token') } },
         { provide: MailSender, useValue: { send: jest.fn(async () => undefined) } },
+        { provide: AuditService, useValue: { appendBestEffort: jest.fn() } },
         {
           provide: REDIS_CLIENT,
           useValue: {

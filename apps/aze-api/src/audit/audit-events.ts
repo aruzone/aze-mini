@@ -1,0 +1,25 @@
+export const AUDIT_EVENTS = [
+  'auth.registered',
+  'auth.login.succeeded',
+  'auth.login.failed',
+  'auth.logout',
+  'auth.refresh.reused',
+  'auth.password.reset',
+  'auth.email.verified',
+  'authz.refused',
+  'audit.actor.pseudonymized',
+  'product.created',
+  'product.updated',
+  'product.deleted',
+  'product-category.created',
+  'product-category.updated',
+  'product-category.deleted',
+  'review.created',
+  'review.updated',
+  'review.deleted',
+  'tag.created',
+  'tag.updated',
+  'tag.deleted',
+] as const;
+
+export type AuditEventName = (typeof AUDIT_EVENTS)[number];

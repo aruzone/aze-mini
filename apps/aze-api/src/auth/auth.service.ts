@@ -22,6 +22,7 @@ import { SESSION_REFUSED } from './refresh-cookie';
 import { EmailTokens } from './email-tokens';
 import { MailSender } from '../mail/mail-sender';
 import { appConfig } from '../config/configuration';
+import { AuditService } from '../audit/audit.service';
 
 // Emails are compared as raw strings by the unique index and by login, so both
 // paths have to agree on one canonical form or the same mailbox gets two
@@ -62,6 +63,7 @@ export class AuthService {
     private readonly refreshSessions: RefreshSessions,
     private readonly emailTokens: EmailTokens,
     private readonly mailSender: MailSender,
+    private readonly audit: AuditService,
   ) {}
 
   async register(registerInput: RegisterDto): Promise<LoginResult> {
@@ -85,13 +87,24 @@ export class AuthService {
         name: registerInput.name,
         password: await hashPassword(password),
       });
+      await this.audit.appendBestEffort({
+        event: 'auth.registered',
+        actorUserId: user.id,
+        subjectType: 'User',
+        subjectId: user.id,
+      });
 
       // Unverified Users may still sign in (ADR-0011); the verification email
       // is a courtesy, not a gate. Its failure must never fail the
       // registration that triggered it.
       await this.sendVerificationEmail(user.id, user.email).catch(() => undefined);
 
-      return this.login({ userId: user.id, email: user.email, verifiedAt: user.verifiedAt });
+      const result = await this.login({
+        userId: user.id,
+        email: user.email,
+        verifiedAt: user.verifiedAt,
+      });
+      return result;
     } catch (error) {
       // The check above loses a race between two registrations of the same
       // email; the unique index is what actually settles it. The filter answers
@@ -120,11 +133,24 @@ export class AuthService {
     const user = await this.validateUser(authInput);
     if (!user) {
       await this.attempts.recordFailure(source, email);
+      await this.audit.appendBestEffort({
+        event: 'auth.login.failed',
+        actorUserId: null,
+        subjectType: 'Authentication',
+        subjectId: 'login',
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     await this.attempts.succeeded(source, email);
-    return this.login(user);
+    const result = await this.login(user);
+    await this.audit.appendBestEffort({
+      event: 'auth.login.succeeded',
+      actorUserId: user.userId,
+      subjectType: 'User',
+      subjectId: user.userId,
+    });
+    return result;
   }
 
   async validateUser(authInput: LoginDto): Promise<SignInData | null> {
@@ -177,6 +203,16 @@ export class AuthService {
       userId: user.id,
       email: user.email,
     };
+  }
+
+  async logout(presentedRefreshToken: string): Promise<void> {
+    const userId = await this.refreshSessions.revokeFamily(presentedRefreshToken);
+    await this.audit.appendBestEffort({
+      event: 'auth.logout',
+      actorUserId: userId,
+      subjectType: 'User',
+      subjectId: userId,
+    });
   }
   /**
    * Enumeration-safe end to end (ADR-0011): the answer is identical in wording
@@ -234,6 +270,7 @@ export class AuthService {
     }
 
     const user = await this.usersService.updatePassword(userId, await hashPassword(password));
+    await this.emailTokens.recordCompletion(userId, 'RESET');
 
     await this.refreshSessions.revokeAllFor(userId);
     await this.mailSender.send({
@@ -252,6 +289,7 @@ export class AuthService {
     }
 
     const user = await this.usersService.markVerified(userId);
+    await this.emailTokens.recordCompletion(userId, 'VERIFICATION');
     return { message: `Your email ${user.email} is now verified.` };
   }
 

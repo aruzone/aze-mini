@@ -71,10 +71,14 @@ type MockDelegate = {
 
 function makeService() {
   const delegate = mockDelegate();
-  const service = new EmailTokens({
-    $transaction: (work: (tx: unknown) => Promise<unknown>) => work({ emailToken: delegate }),
-    emailToken: delegate,
-  } as never);
+  const service = new EmailTokens(
+    {
+      $transaction: (work: (tx: unknown) => Promise<unknown>) =>
+        work({ emailToken: delegate }),
+      emailToken: delegate,
+    } as never,
+    { appendBestEffort: jest.fn() } as never,
+  );
   return { service, delegate: delegate as unknown as MockDelegate };
 }
 

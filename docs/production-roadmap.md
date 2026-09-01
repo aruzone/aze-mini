@@ -135,7 +135,8 @@ default retention dropped by monthly partition, and erasure pseudonymizes the
 acting User id — recorded as its own audit event — rather than ever deleting
 rows. The account-deletion flow that triggers erasure is the one next
 decision this item carries, taken when it is built. Touched: the schema, a
-new audit module, the services that mutate, the contracts.
+new audit module, and the services that mutate. Nothing crosses the wire, so
+this item does not touch either contracts package.
 
 ### 7. Pagination
 

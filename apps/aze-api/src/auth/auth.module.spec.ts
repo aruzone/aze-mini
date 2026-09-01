@@ -1,9 +1,18 @@
+import { Global, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthModule } from './auth.module';
 import { appConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
+import { AuditService } from '../audit/audit.service';
+
+@Global()
+@Module({
+  providers: [{ provide: AuditService, useValue: { appendBestEffort: jest.fn() } }],
+  exports: [AuditService],
+})
+class AuditTestModule {}
 
 // The signing secret is wired by name. A name appConfig does not expose leaves
 // JwtModule with `secret: undefined`, which boots clean past the configuration
@@ -24,6 +33,7 @@ describe('AuthModule', () => {
         // Global, so the controller's ConfigService and the JWT factory resolve
         // against the same loaded configuration.
         ConfigModule.forRoot({ isGlobal: true, load: [appConfig] }),
+        AuditTestModule,
         AuthModule,
       ],
     })

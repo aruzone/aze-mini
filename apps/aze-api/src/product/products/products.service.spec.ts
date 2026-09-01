@@ -5,9 +5,11 @@ import { ProductsService } from './products.service';
 import { ProductCache } from './product-cache';
 import { DatabaseService } from '../../database/database.service';
 import { ConfigService } from '@nestjs/config';
+import { AuditService } from '../../audit/audit.service';
 
 const TAG_A = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f';
 const TAG_B = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e70';
+const ACTOR_USER_ID = 'user-1';
 
 const connectFoundNothing = () =>
   new PrismaClientKnownRequestError('An operation failed', {
@@ -30,6 +32,8 @@ describe('ProductsService', () => {
     productCategory: { findUnique: jest.fn() },
     tag: { findMany: jest.fn() },
     review: { count: jest.fn() },
+    $transaction: (work: (tx: unknown) => Promise<unknown>) =>
+      work(mockDatabaseService),
   };
 
   const mockConfigService = { get: jest.fn() };
@@ -41,8 +45,13 @@ describe('ProductsService', () => {
     forgetList: jest.fn(),
   };
 
+  const mockAudit = { append: jest.fn(async () => undefined) };
+
   beforeEach(async () => {
     jest.resetAllMocks();
+    mockDatabaseService.product.create.mockResolvedValue({ id: 'product-1' });
+    mockDatabaseService.product.update.mockResolvedValue({ id: 'product-1' });
+    mockDatabaseService.product.delete.mockResolvedValue({ id: 'product-1' });
 
     // The cache seam is exercised on its own in product-cache.spec.ts. Here it
     // stands in as a cache that never has the answer, so these keep describing
@@ -63,6 +72,7 @@ describe('ProductsService', () => {
         { provide: DatabaseService, useValue: mockDatabaseService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: ProductCache, useValue: mockProductCache },
+        { provide: AuditService, useValue: mockAudit },
       ],
     }).compile();
 
@@ -77,7 +87,7 @@ describe('ProductsService', () => {
   // business. These pin the translation between the two.
   describe('create', () => {
     it('connects the category the flat id names', async () => {
-      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 });
+      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 }, ACTOR_USER_ID);
 
       expect(mockDatabaseService.product.create).toHaveBeenCalledWith({
         data: { name: 'Widget', price: 9.99, category: { connect: { id: 3 } } },
@@ -85,7 +95,7 @@ describe('ProductsService', () => {
     });
 
     it('sends no categoryId column of its own', async () => {
-      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 });
+      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 }, ACTOR_USER_ID);
 
       const { data } = mockDatabaseService.product.create.mock.calls[0][0];
       expect(data).not.toHaveProperty('categoryId');
@@ -94,7 +104,7 @@ describe('ProductsService', () => {
 
   describe('update', () => {
     it('leaves the category alone when the patch does not name one', async () => {
-      await service.update('product-1', { name: 'Widget II' });
+      await service.update('product-1', { name: 'Widget II' }, ACTOR_USER_ID);
 
       expect(mockDatabaseService.product.update).toHaveBeenCalledWith({
         where: { id: 'product-1' },
@@ -103,7 +113,7 @@ describe('ProductsService', () => {
     });
 
     it('reconnects the category when the patch names one', async () => {
-      await service.update('product-1', { categoryId: 7 });
+      await service.update('product-1', { categoryId: 7 }, ACTOR_USER_ID);
 
       expect(mockDatabaseService.product.update).toHaveBeenCalledWith({
         where: { id: 'product-1' },
@@ -141,19 +151,19 @@ describe('ProductsService', () => {
     });
 
     it('forgets the lists a new product belongs in', async () => {
-      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 });
+      await service.create({ name: 'Widget', price: 9.99, categoryId: 3 }, ACTOR_USER_ID);
 
       expect(mockProductCache.forgetList).toHaveBeenCalled();
     });
 
     it('forgets a product it has updated', async () => {
-      await service.update('product-1', { name: 'Widget II' });
+      await service.update('product-1', { name: 'Widget II' }, ACTOR_USER_ID);
 
       expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
     });
 
     it('forgets a product it has deleted', async () => {
-      await service.remove('product-1');
+      await service.remove('product-1', ACTOR_USER_ID);
 
       expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
     });
@@ -163,7 +173,7 @@ describe('ProductsService', () => {
     it('forgets nothing when the write did not happen', async () => {
       mockDatabaseService.product.update.mockRejectedValue(new Error('the pool is gone'));
 
-      await expect(service.update('product-1', { name: 'Widget II' })).rejects.toThrow();
+      await expect(service.update('product-1', { name: 'Widget II' }, ACTOR_USER_ID)).rejects.toThrow();
       expect(mockProductCache.forget).not.toHaveBeenCalled();
     });
   });
@@ -176,7 +186,7 @@ describe('ProductsService', () => {
       mockDatabaseService.productCategory.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.create({ name: 'Widget', price: 9.99, categoryId: 999999 }),
+        service.create({ name: 'Widget', price: 9.99, categoryId: 999999 }, ACTOR_USER_ID),
       ).rejects.toThrow(new NotFoundException('Product category with ID 999999 not found'));
     });
 
@@ -186,7 +196,7 @@ describe('ProductsService', () => {
       mockDatabaseService.tag.findMany.mockResolvedValue([{ id: TAG_A }]);
 
       await expect(
-        service.create({ name: 'Widget', price: 9.99, categoryId: 3, tagIds: [TAG_A, TAG_B] }),
+        service.create({ name: 'Widget', price: 9.99, categoryId: 3, tagIds: [TAG_A, TAG_B] }, ACTOR_USER_ID),
       ).rejects.toThrow(new NotFoundException(`Tag with ID ${TAG_B} not found`));
     });
 
@@ -197,7 +207,7 @@ describe('ProductsService', () => {
       mockDatabaseService.product.update.mockRejectedValue(original);
       mockDatabaseService.productCategory.findUnique.mockResolvedValue({ id: 3 });
 
-      await expect(service.update('product-1', { categoryId: 3 })).rejects.toBe(original);
+      await expect(service.update('product-1', { categoryId: 3 }, ACTOR_USER_ID)).rejects.toBe(original);
     });
 
     it('leaves a failure that is not a missing record alone', async () => {
@@ -205,7 +215,7 @@ describe('ProductsService', () => {
       mockDatabaseService.product.create.mockRejectedValue(original);
 
       await expect(
-        service.create({ name: 'Widget', price: 9.99, categoryId: 3 }),
+        service.create({ name: 'Widget', price: 9.99, categoryId: 3 }, ACTOR_USER_ID),
       ).rejects.toBe(original);
       expect(mockDatabaseService.productCategory.findUnique).not.toHaveBeenCalled();
     });
@@ -215,7 +225,7 @@ describe('ProductsService', () => {
     it('refuses, naming how many reviews are in the way', async () => {
       mockDatabaseService.review.count.mockResolvedValue(2);
 
-      await expect(service.remove('product-1')).rejects.toThrow(
+      await expect(service.remove('product-1', ACTOR_USER_ID)).rejects.toThrow(
         new ConflictException('Product with ID product-1 still has 2 reviews'),
       );
     });
@@ -223,7 +233,7 @@ describe('ProductsService', () => {
     it('never reaches the database with the delete', async () => {
       mockDatabaseService.review.count.mockResolvedValue(2);
 
-      await expect(service.remove('product-1')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.remove('product-1', ACTOR_USER_ID)).rejects.toBeInstanceOf(ConflictException);
       expect(mockDatabaseService.product.delete).not.toHaveBeenCalled();
     });
 
@@ -232,14 +242,14 @@ describe('ProductsService', () => {
     it('leaves the cached product alone', async () => {
       mockDatabaseService.review.count.mockResolvedValue(2);
 
-      await expect(service.remove('product-1')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.remove('product-1', ACTOR_USER_ID)).rejects.toBeInstanceOf(ConflictException);
       expect(mockProductCache.forget).not.toHaveBeenCalled();
     });
 
     it('counts only the reviews of the product being deleted', async () => {
       mockDatabaseService.review.count.mockResolvedValue(0);
 
-      await service.remove('product-1');
+      await service.remove('product-1', ACTOR_USER_ID);
 
       expect(mockDatabaseService.review.count).toHaveBeenCalledWith({
         where: { productId: 'product-1' },
@@ -250,7 +260,7 @@ describe('ProductsService', () => {
       mockDatabaseService.review.count.mockResolvedValue(0);
       mockDatabaseService.product.delete.mockResolvedValue({ id: 'product-1' });
 
-      await expect(service.remove('product-1')).resolves.toEqual({ id: 'product-1' });
+      await expect(service.remove('product-1', ACTOR_USER_ID)).resolves.toEqual({ id: 'product-1' });
       expect(mockProductCache.forget).toHaveBeenCalledWith('product-1');
     });
   });

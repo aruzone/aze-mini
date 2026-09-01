@@ -75,6 +75,24 @@ enum EmailTokenType {
   RESET
   VERIFICATION
 }
+// Prisma writes this parent like any other model. The migration partitions it
+// by occurredAt because Prisma's schema language cannot express RANGE partitions.
+model AuditEvent {
+  id          String   @default(uuid(7))
+  occurredAt  DateTime @default(now())
+  event       String
+  actorUserId String?
+  subjectType String
+  subjectId   String
+  details     Json?
+
+  @@id([id, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([subjectType, subjectId, occurredAt])
+  @@index([event, occurredAt])
+  @@map("audit_events")
+}
+
 
 model ProductCategory {
   id   Int    @id @default(autoincrement())

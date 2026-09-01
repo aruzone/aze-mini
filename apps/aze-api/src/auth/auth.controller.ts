@@ -113,7 +113,7 @@ export class AuthController {
   ): Promise<{ message: string }> {
     const presented = this.presentedRefreshToken(request, reply);
 
-    await this.refreshSessions.revokeFamily(presented);
+    await this.authService.logout(presented);
     clearRefreshCookie(reply);
     return { message: 'Signed out' };
   }

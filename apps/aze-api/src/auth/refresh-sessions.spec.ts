@@ -93,7 +93,10 @@ describe('RefreshSessions', () => {
     userId = 'user-1';
     // The DatabaseService the service sees: the transaction plus the token
     // delegate hanging off it, the way PrismaClient names its models.
-    sessions = new RefreshSessions({ ...delegate, refreshToken: delegate } as never);
+    sessions = new RefreshSessions(
+      { ...delegate, refreshToken: delegate } as never,
+      { appendBestEffort: jest.fn() } as never,
+    );
   });
 
   beforeEach(() => {

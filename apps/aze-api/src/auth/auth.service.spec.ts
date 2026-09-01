@@ -10,6 +10,7 @@ import { UsersService } from '../users/users.service';
 import { EmailTokens } from './email-tokens';
 import { MailSender } from '../mail/mail-sender';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 
 /** Who is asking. Each case here is one caller, so one address will do. */
 const SOURCE = '203.0.113.7';
@@ -25,14 +26,20 @@ describe('AuthService', () => {
 
   const mockJwtService = { sign: jest.fn(() => 'signed.jwt.token') };
 
-  const mockRefreshSessions = { issue: jest.fn(async () => 'refresh.token.value') };
+  const mockRefreshSessions = {
+    issue: jest.fn(async () => 'refresh.token.value'),
+    revokeFamily: jest.fn(async () => 'user-1'),
+  };
 
   const mockEmailTokens = {
     issue: jest.fn(async () => 'email-token-value'),
     consume: jest.fn(async () => 'user-1'),
+    recordCompletion: jest.fn(async () => undefined),
   };
 
   const mockMailSender = { send: jest.fn(async () => undefined) };
+
+  const mockAudit = { appendBestEffort: jest.fn(async () => undefined) };
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -47,6 +54,7 @@ describe('AuthService', () => {
         { provide: RefreshSessions, useValue: mockRefreshSessions },
         { provide: EmailTokens, useValue: mockEmailTokens },
         { provide: MailSender, useValue: mockMailSender },
+        { provide: AuditService, useValue: mockAudit },
         // LoginAttempts is not under test here; its limiter just needs a
         // Redis that answers as "nothing counted".
         {

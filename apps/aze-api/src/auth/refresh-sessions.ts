@@ -5,6 +5,7 @@ import { DatabaseService } from '../database/database.service';
 import { isPrismaError, TRANSACTION_CONFLICT } from '../database/prisma-errors';
 import { hashToken, mintToken } from './opaque-token';
 import { SESSION_REFUSED } from './refresh-cookie';
+import { AuditService } from '../audit/audit.service';
 
 /**
  * The refresh-token machine (ADR-0009): issue → rotate → reuse-detect →
@@ -30,14 +31,20 @@ import { SESSION_REFUSED } from './refresh-cookie';
  * a throw rolls everything inside it back, revocation included.
  */
 class Replayed {
-  constructor(readonly familyId: string) {}
+  constructor(
+    readonly familyId: string,
+    readonly userId: string,
+  ) {}
 }
 @Injectable()
 export class RefreshSessions {
   private readonly absoluteTtlSeconds: number;
   private readonly idleTtlSeconds: number;
 
-  constructor(private readonly databaseService: DatabaseService) {
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly audit: AuditService,
+  ) {
     // Read once at construction: these are deployment configuration, not
     // per-request state, and the startup check has already refused a value
     // that is not a positive whole number.
@@ -103,7 +110,7 @@ export class RefreshSessions {
             data: { rotatedAt: now },
           });
           if (claimed.count !== 1) {
-            throw new Replayed(row.familyId);
+            throw new Replayed(row.familyId, row.userId);
           }
 
           const refreshToken = mintToken();
@@ -126,6 +133,7 @@ export class RefreshSessions {
       // roll it back — see the comment on this method.
       if (error instanceof Replayed) {
         await this.revokeFamilyId(error.familyId);
+        await this.recordReuse(error.userId, error.familyId);
         throw this.refused();
       }
       // Under Serializable the losing racer never sees the winner's write:
@@ -137,6 +145,7 @@ export class RefreshSessions {
         });
         if (row) {
           await this.revokeFamilyId(row.familyId);
+          await this.recordReuse(row.userId, row.familyId);
         }
         throw this.refused();
       }
@@ -145,7 +154,7 @@ export class RefreshSessions {
   }
 
   /** Logout: revoke the family the presented token belongs to. */
-  async revokeFamily(presented: string): Promise<void> {
+  async revokeFamily(presented: string): Promise<string> {
     const row = await this.databaseService.refreshToken.findUnique({
       where: { tokenHash: hashToken(presented) },
     });
@@ -155,6 +164,7 @@ export class RefreshSessions {
       throw this.refused();
     }
     await this.revokeFamilyId(row.familyId);
+    return row.userId;
   }
 
   /** A password reset: every family the User has dies, whoever holds them. */
@@ -169,6 +179,15 @@ export class RefreshSessions {
     await this.databaseService.refreshToken.updateMany({
       where: { familyId, revokedAt: null },
       data: { revokedAt: new Date() },
+    });
+  }
+
+  private async recordReuse(userId: string, familyId: string): Promise<void> {
+    await this.audit.appendBestEffort({
+      event: 'auth.refresh.reused',
+      actorUserId: userId,
+      subjectType: 'RefreshSession',
+      subjectId: familyId,
     });
   }
 

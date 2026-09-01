@@ -3,8 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '../../../generated/prisma/runtime/library';
 import { DatabaseService } from '../../database/database.service';
 import { ReviewService } from './review.service';
+import { AuditService } from '../../audit/audit.service';
 
 const PRODUCT_ID = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f';
+const ACTOR_USER_ID = 'user-1';
 
 const connectFoundNothing = () =>
   new PrismaClientKnownRequestError('An operation failed', {
@@ -25,15 +27,20 @@ describe('ReviewService', () => {
       delete: jest.fn(),
     },
     product: { findUnique: jest.fn() },
+    $transaction: (work: (tx: unknown) => Promise<unknown>) =>
+      work(mockDatabaseService),
   };
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    mockDatabaseService.review.create.mockResolvedValue({ id: 'review-1' });
+    mockDatabaseService.review.update.mockResolvedValue({ id: 'review-1' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReviewService,
         { provide: DatabaseService, useValue: mockDatabaseService },
+        { provide: AuditService, useValue: { append: jest.fn() } },
       ],
     }).compile();
 
@@ -41,7 +48,7 @@ describe('ReviewService', () => {
   });
 
   it('connects the product the flat id names', async () => {
-    await service.create({ rating: 5, productId: PRODUCT_ID });
+    await service.create({ rating: 5, productId: PRODUCT_ID }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.review.create).toHaveBeenCalledWith({
       data: { rating: 5, product: { connect: { id: PRODUCT_ID } } },
@@ -49,14 +56,14 @@ describe('ReviewService', () => {
   });
 
   it('sends no productId column of its own', async () => {
-    await service.create({ rating: 5, productId: PRODUCT_ID });
+    await service.create({ rating: 5, productId: PRODUCT_ID }, ACTOR_USER_ID);
 
     const { data } = mockDatabaseService.review.create.mock.calls[0][0];
     expect(data).not.toHaveProperty('productId');
   });
 
   it('leaves the product alone when the patch does not name one', async () => {
-    await service.update('review-1', { rating: 4 });
+    await service.update('review-1', { rating: 4 }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.review.update).toHaveBeenCalledWith({
       where: { id: 'review-1' },
@@ -65,7 +72,7 @@ describe('ReviewService', () => {
   });
 
   it('reconnects the product when the patch names one', async () => {
-    await service.update('review-1', { productId: PRODUCT_ID });
+    await service.update('review-1', { productId: PRODUCT_ID }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.review.update).toHaveBeenCalledWith({
       where: { id: 'review-1' },
@@ -77,7 +84,7 @@ describe('ReviewService', () => {
     mockDatabaseService.review.create.mockRejectedValue(connectFoundNothing());
     mockDatabaseService.product.findUnique.mockResolvedValue(null);
 
-    await expect(service.create({ rating: 5, productId: PRODUCT_ID })).rejects.toThrow(
+    await expect(service.create({ rating: 5, productId: PRODUCT_ID }, ACTOR_USER_ID)).rejects.toThrow(
       new NotFoundException(`Product with ID ${PRODUCT_ID} not found`),
     );
   });
@@ -88,6 +95,6 @@ describe('ReviewService', () => {
     mockDatabaseService.review.update.mockRejectedValue(original);
     mockDatabaseService.product.findUnique.mockResolvedValue({ id: PRODUCT_ID });
 
-    await expect(service.update('review-1', { productId: PRODUCT_ID })).rejects.toBe(original);
+    await expect(service.update('review-1', { productId: PRODUCT_ID }, ACTOR_USER_ID)).rejects.toBe(original);
   });
 });

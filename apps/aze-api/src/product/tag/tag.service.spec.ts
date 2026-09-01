@@ -3,9 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '../../../generated/prisma/runtime/library';
 import { DatabaseService } from '../../database/database.service';
 import { TagService } from './tag.service';
+import { AuditService } from '../../audit/audit.service';
 
 const PRODUCT_A = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e6f';
 const PRODUCT_B = '0195f0e1-3c8a-7000-8000-2b1f9c4d5e70';
+const ACTOR_USER_ID = 'user-1';
 
 const connectFoundNothing = () =>
   new PrismaClientKnownRequestError('An operation failed', {
@@ -26,20 +28,28 @@ describe('TagService', () => {
       delete: jest.fn(),
     },
     product: { findMany: jest.fn() },
+    $transaction: (work: (tx: unknown) => Promise<unknown>) =>
+      work(mockDatabaseService),
   };
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    mockDatabaseService.tag.create.mockResolvedValue({ id: 'tag-1' });
+    mockDatabaseService.tag.update.mockResolvedValue({ id: 'tag-1' });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TagService, { provide: DatabaseService, useValue: mockDatabaseService }],
+      providers: [
+        TagService,
+        { provide: DatabaseService, useValue: mockDatabaseService },
+        { provide: AuditService, useValue: { append: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<TagService>(TagService);
   });
 
   it('creates a Tag linked to nothing when no products are named', async () => {
-    await service.create({ name: 'seasonal' });
+    await service.create({ name: 'seasonal' }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.tag.create).toHaveBeenCalledWith({
       data: { name: 'seasonal' },
@@ -47,7 +57,7 @@ describe('TagService', () => {
   });
 
   it('connects the products the flat ids name', async () => {
-    await service.create({ name: 'seasonal', productIds: [PRODUCT_A, PRODUCT_B] });
+    await service.create({ name: 'seasonal', productIds: [PRODUCT_A, PRODUCT_B] }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.tag.create).toHaveBeenCalledWith({
       data: {
@@ -60,7 +70,7 @@ describe('TagService', () => {
   // Replace rather than add: a patch naming one product leaves the Tag on that
   // product alone, which is what a caller sending the whole list expects.
   it('replaces the linked products on update', async () => {
-    await service.update('tag-1', { productIds: [PRODUCT_B] });
+    await service.update('tag-1', { productIds: [PRODUCT_B] }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.tag.update).toHaveBeenCalledWith({
       where: { id: 'tag-1' },
@@ -69,7 +79,7 @@ describe('TagService', () => {
   });
 
   it('leaves the links alone when the patch does not name products', async () => {
-    await service.update('tag-1', { name: 'evergreen' });
+    await service.update('tag-1', { name: 'evergreen' }, ACTOR_USER_ID);
 
     expect(mockDatabaseService.tag.update).toHaveBeenCalledWith({
       where: { id: 'tag-1' },
@@ -84,7 +94,7 @@ describe('TagService', () => {
     mockDatabaseService.product.findMany.mockResolvedValue([]);
 
     await expect(
-      service.create({ name: 'seasonal', productIds: [PRODUCT_A, PRODUCT_B] }),
+      service.create({ name: 'seasonal', productIds: [PRODUCT_A, PRODUCT_B] }, ACTOR_USER_ID),
     ).rejects.toThrow(
       new NotFoundException(`Products with IDs ${PRODUCT_A}, ${PRODUCT_B} not found`),
     );
@@ -95,6 +105,6 @@ describe('TagService', () => {
     mockDatabaseService.tag.update.mockRejectedValue(original);
     mockDatabaseService.product.findMany.mockResolvedValue([{ id: PRODUCT_B }]);
 
-    await expect(service.update('tag-1', { productIds: [PRODUCT_B] })).rejects.toBe(original);
+    await expect(service.update('tag-1', { productIds: [PRODUCT_B] }, ACTOR_USER_ID)).rejects.toBe(original);
   });
 });

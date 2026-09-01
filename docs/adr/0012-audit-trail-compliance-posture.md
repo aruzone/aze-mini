@@ -1,6 +1,6 @@
 # The audit trail is queried, kept twelve months, and pseudonymized on erasure
 
-**Status:** accepted, not yet implemented — decided in [#79](https://github.com/aruzone/aze-mini/issues/79), for the trail decided in the product-features triage ([#73](https://github.com/aruzone/aze-mini/issues/73)).
+**Status:** accepted and implemented in [#80](https://github.com/aruzone/aze-mini/issues/80). Decided in [#79](https://github.com/aruzone/aze-mini/issues/79), for the trail decided in the product-features triage ([#73](https://github.com/aruzone/aze-mini/issues/73)).
 
 The audit table ships as Platform; this decision settles the posture around it — who reads it, how long it lives, and what a User's right to erasure means for rows that must never be rewritten. Settled with the driving dev:
 

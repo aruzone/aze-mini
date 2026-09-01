@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { appConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
 import { hashToken, mintToken } from './opaque-token';
+import { AuditService } from '../audit/audit.service';
 
 /** The defaults behind the environment-configurable lifetimes (ADR-0011). */
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60;
@@ -21,7 +22,10 @@ export type EmailTokenType = 'RESET' | 'VERIFICATION';
  */
 @Injectable()
 export class EmailTokens {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Returns the raw token exactly once — the caller's only chance to email it. */
   async issue(userId: string, type: EmailTokenType): Promise<string> {
@@ -69,6 +73,15 @@ export class EmailTokens {
         where: { tokenHash: hashToken(token) },
       });
       return row?.userId ?? null;
+    });
+  }
+
+  async recordCompletion(userId: string, type: EmailTokenType): Promise<void> {
+    await this.audit.appendBestEffort({
+      event: type === 'RESET' ? 'auth.password.reset' : 'auth.email.verified',
+      actorUserId: userId,
+      subjectType: 'User',
+      subjectId: userId,
     });
   }
 

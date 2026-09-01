@@ -7,6 +7,7 @@ import { refuseIfReferenced } from '../../database/referenced-rows';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CachedRead, ProductCache } from './product-cache';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class ProductsService {
@@ -14,17 +15,30 @@ export class ProductsService {
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
     private readonly cache: ProductCache,
+    private readonly audit: AuditService,
   ) {}
 
-  async create(createProductDto: CreateProductDto): Promise<Product> {
+  async create(
+    createProductDto: CreateProductDto,
+    actorUserId: string | null,
+  ): Promise<Product> {
     const { categoryId, tagIds, ...product } = createProductDto;
     try {
-      const created = await this.databaseService.product.create({
-        data: {
-          ...product,
-          category: { connect: { id: categoryId } },
-          ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
-        },
+      const created = await this.databaseService.$transaction(async (tx) => {
+        const result = await tx.product.create({
+          data: {
+            ...product,
+            category: { connect: { id: categoryId } },
+            ...(tagIds && { tags: { connect: tagIds.map((id) => ({ id })) } }),
+          },
+        });
+        await this.audit.append(tx, {
+          event: 'product.created',
+          actorUserId,
+          subjectType: 'Product',
+          subjectId: result.id,
+        });
+        return result;
       });
       await this.cache.forgetList();
       return created;
@@ -53,16 +67,31 @@ export class ProductsService {
     });
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    actorUserId: string,
+  ): Promise<Product> {
     const { categoryId, tagIds, ...product } = updateProductDto;
     try {
-      const updated = await this.databaseService.product.update({
-        where: { id },
-        data: {
-          ...product,
-          ...(categoryId !== undefined && { category: { connect: { id: categoryId } } }),
-          ...(tagIds && { tags: { set: tagIds.map((id) => ({ id })) } }),
-        },
+      const updated = await this.databaseService.$transaction(async (tx) => {
+        const result = await tx.product.update({
+          where: { id },
+          data: {
+            ...product,
+            ...(categoryId !== undefined && {
+              category: { connect: { id: categoryId } },
+            }),
+            ...(tagIds && { tags: { set: tagIds.map((tagId) => ({ id: tagId })) } }),
+          },
+        });
+        await this.audit.append(tx, {
+          event: 'product.updated',
+          actorUserId,
+          subjectType: 'Product',
+          subjectId: result.id,
+        });
+        return result;
       });
       await this.cache.forget(id);
       return updated;
@@ -72,13 +101,22 @@ export class ProductsService {
     }
   }
 
-  async remove(id: string): Promise<Product> {
+  async remove(id: string, actorUserId: string): Promise<Product> {
     await refuseIfReferenced(
       `Product with ID ${id}`,
       { one: 'review', many: 'reviews' },
       () => this.databaseService.review.count({ where: { productId: id } }),
     );
-    const removed = await this.databaseService.product.delete({ where: { id } });
+    const removed = await this.databaseService.$transaction(async (tx) => {
+      const result = await tx.product.delete({ where: { id } });
+      await this.audit.append(tx, {
+        event: 'product.deleted',
+        actorUserId,
+        subjectType: 'Product',
+        subjectId: result.id,
+      });
+      return result;
+    });
     await this.cache.forget(id);
     return removed;
   }

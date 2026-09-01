@@ -56,6 +56,7 @@ const optionalVariableProblems = (): string[] => {
     REGISTRATIONS_PER_MINUTE: process.env.REGISTRATIONS_PER_MINUTE,
     EMAIL_RESET_TTL_SECONDS: process.env.EMAIL_RESET_TTL_SECONDS,
     EMAIL_VERIFICATION_TTL_SECONDS: process.env.EMAIL_VERIFICATION_TTL_SECONDS,
+    AUDIT_RETENTION_MONTHS: process.env.AUDIT_RETENTION_MONTHS,
   })) {
     if (value !== undefined && (!/^\d+$/.test(value.trim()) || Number(value) <= 0)) {
       problems.push(
@@ -206,6 +207,9 @@ export const appConfig = () => {
       process.env.EMAIL_VERIFICATION_TTL_SECONDS,
       24 * 60 * 60,
     ),
+    // Audit partitions older than this many calendar months are eligible for
+    // the documented drop operation (ADR-0012). The API does not schedule it.
+    auditRetentionMonths: positiveInt(process.env.AUDIT_RETENTION_MONTHS, 12),
     metricsEnabled: process.env.METRICS_ENABLED === 'true',
   };
 };

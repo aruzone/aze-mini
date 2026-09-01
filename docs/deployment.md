@@ -128,6 +128,36 @@ in a barebones chart would not give it. Use a managed service or an operator.
 
 Nothing here backs anything up.
 
+### 7a. Schedule audit partition maintenance
+
+The audit trail has no route or page. Query `audit_events` with psql, Prisma
+Studio or your own reporting tool. The table is partitioned by calendar month;
+the migration creates the current and next month's partitions. Before each
+month starts, have your scheduler create the following month:
+
+```bash
+psql "$DATABASE_URL" \
+  -c "SELECT create_audit_partition_for_month((CURRENT_DATE + interval '1 month')::date);"
+```
+
+`AUDIT_RETENTION_MONTHS` is a positive whole number, default `12`. The API
+validates it at startup but does not run retention. Export every partition that
+crossed your retention horizon to your own cold storage immediately before
+calling the drop function. That point between export and drop is the supported
+archive hook; the Starter cannot choose the storage, format or schedule for an
+Adopter.
+
+```bash
+psql "$DATABASE_URL" \
+  -v retention_months="${AUDIT_RETENTION_MONTHS:-12}" <<'SQL'
+SELECT drop_audit_partitions_older_than(:'retention_months'::integer);
+SQL
+```
+
+The function drops whole monthly partitions older than the configured horizon.
+It never scans or deletes individual audit rows. Schedule both commands outside
+the API, after the export has succeeded.
+
 ### 8. Know what the perimeter does
 
 - Every route requires a bearer token unless it opts out with `@Public()`

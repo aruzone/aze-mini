@@ -4,19 +4,34 @@ import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { DatabaseService } from '../../database/database.service';
 import { RECORD_NOT_FOUND, isPrismaError } from '../../database/prisma-errors';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class TagService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly audit: AuditService,
+  ) {}
 
-  async create(createTagDto: CreateTagDto): Promise<Tag> {
+  async create(createTagDto: CreateTagDto, actorUserId: string): Promise<Tag> {
     const { productIds, ...tag } = createTagDto;
     try {
-      return await this.databaseService.tag.create({
-        data: {
-          ...tag,
-          ...(productIds && { products: { connect: productIds.map((id) => ({ id })) } }),
-        },
+      return await this.databaseService.$transaction(async (tx) => {
+        const result = await tx.tag.create({
+          data: {
+            ...tag,
+            ...(productIds && {
+              products: { connect: productIds.map((id) => ({ id })) },
+            }),
+          },
+        });
+        await this.audit.append(tx, {
+          event: 'tag.created',
+          actorUserId,
+          subjectType: 'Tag',
+          subjectId: result.id,
+        });
+        return result;
       });
     } catch (error) {
       await this.nameMissingRelation(error, productIds);
@@ -38,15 +53,30 @@ export class TagService {
     return tag;
   }
 
-  async update(id: string, updateTagDto: UpdateTagDto): Promise<Tag> {
+  async update(
+    id: string,
+    updateTagDto: UpdateTagDto,
+    actorUserId: string,
+  ): Promise<Tag> {
     const { productIds, ...tag } = updateTagDto;
     try {
-      return await this.databaseService.tag.update({
-        where: { id },
-        data: {
-          ...tag,
-          ...(productIds && { products: { set: productIds.map((pid) => ({ id: pid })) } }),
-        },
+      return await this.databaseService.$transaction(async (tx) => {
+        const result = await tx.tag.update({
+          where: { id },
+          data: {
+            ...tag,
+            ...(productIds && {
+              products: { set: productIds.map((productId) => ({ id: productId })) },
+            }),
+          },
+        });
+        await this.audit.append(tx, {
+          event: 'tag.updated',
+          actorUserId,
+          subjectType: 'Tag',
+          subjectId: result.id,
+        });
+        return result;
       });
     } catch (error) {
       await this.nameMissingRelation(error, productIds);
@@ -54,8 +84,17 @@ export class TagService {
     }
   }
 
-  remove(id: string): Promise<Tag> {
-    return this.databaseService.tag.delete({ where: { id } });
+  remove(id: string, actorUserId: string): Promise<Tag> {
+    return this.databaseService.$transaction(async (tx) => {
+      const tag = await tx.tag.delete({ where: { id } });
+      await this.audit.append(tx, {
+        event: 'tag.deleted',
+        actorUserId,
+        subjectType: 'Tag',
+        subjectId: tag.id,
+      });
+      return tag;
+    });
   }
 
   // Prisma reports a failed connect as P2025 naming the relation, never the id

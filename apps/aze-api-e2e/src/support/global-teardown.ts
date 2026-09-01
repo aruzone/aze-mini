@@ -1,43 +1,41 @@
 import { killPort } from '@nx/node/utils';
 import { API_PORT } from './api-port';
 import { cleanupE2ECatalogue } from './catalogue-cleanup';
-/* eslint-disable */
+
+async function cleanupApiPort(): Promise<void> {
+  // Kill whatever still holds the API port — including this run's own serve,
+  // which can outlive the command that started it by a moment. Without this,
+  // the next run's readiness check can pass against the dying server and then
+  // find nothing there once jest starts asking questions.
+  await killPort(API_PORT);
+}
+
+async function collectCleanupFailure(
+  failures: unknown[],
+  cleanup: () => Promise<void>,
+): Promise<void> {
+  try {
+    await cleanup();
+  } catch (error) {
+    failures.push(error);
+  }
+}
 
 module.exports = async function () {
-  let catalogueFailure: unknown;
-  let catalogueCleanupFailed = false;
-  try {
-    await cleanupE2ECatalogue();
-  } catch (error) {
-    catalogueFailure = error;
-    catalogueCleanupFailed = true;
-  }
+  const cleanupFailures: unknown[] = [];
 
-  let portFailure: unknown;
-  let portCleanupFailed = false;
-  try {
-    // Kill whatever still holds the API port — including this run's own serve,
-    // which can outlive the command that started it by a moment. Without this,
-    // the next run's readiness check can pass against the dying server and then
-    // find nothing there once jest starts asking questions.
-    await killPort(API_PORT);
-  } catch (error) {
-    portFailure = error;
-    portCleanupFailed = true;
-  }
+  await collectCleanupFailure(cleanupFailures, cleanupE2ECatalogue);
+  await collectCleanupFailure(cleanupFailures, cleanupApiPort);
 
   console.log(globalThis.__TEARDOWN_MESSAGE__);
 
-  if (catalogueCleanupFailed && portCleanupFailed) {
+  if (cleanupFailures.length === 1) {
+    throw cleanupFailures[0];
+  }
+  if (cleanupFailures.length > 1) {
     throw new AggregateError(
-      [catalogueFailure, portFailure],
+      cleanupFailures,
       'Catalogue and API port cleanup both failed',
     );
-  }
-  if (catalogueCleanupFailed) {
-    throw catalogueFailure;
-  }
-  if (portCleanupFailed) {
-    throw portFailure;
   }
 };

@@ -19,6 +19,9 @@ The order to work in and how to check the result are at the bottom, under **Doin
 | `apps/aze-api-e2e/src/aze-api/missing-records.spec.ts` | Drives the missing-relation 404s through catalogue routes |
 | `apps/aze-api-e2e/src/aze-api/referenced-rows.spec.ts` | Drives the RESTRICT 409s through catalogue routes |
 | `apps/aze-api-e2e/src/support/catalogue.ts` | Creates the catalogue rows those specs set up with |
+| `apps/aze-api-e2e/src/support/catalogue-cleanup.ts` | Removes namespaced E2E catalogue rows and their dependencies during global teardown |
+| `apps/aze-api-e2e/src/support/catalogue-cleanup.spec.ts` | Pins the Demo-only cleanup selection and dependency order |
+| `apps/aze-api-e2e/src/support/catalogue-namespace.ts` | Names E2E catalogue fixtures so cleanup cannot select Demo or Adopter rows |
 | `apps/aze-client/src/app/catalogue/` | The authenticated page that lists the catalogue |
 | `deploy/` | The Helm chart and the Argo CD Application — barebones, and Demo (ADR-0006, `deploy/README.md`). Keep them if you want the shape; they are yours to rewrite either way |
 | `apps/aze-client/src/app/api/hello/` | The example Next.js route handler |
@@ -33,7 +36,8 @@ The order to work in and how to check the result are at the bottom, under **Doin
 | `apps/aze-api/src/config/pipes/validation.pipe.spec.ts` | It validates against `CreateProductDto`; point it at a DTO you keep — `RegisterDto` does the job — and rewrite the bodies it sends to match that DTO's fields, or the suite will not compile and then will not pass |
 | `apps/aze-client/src/app/page.tsx` | Drop the link to `/catalogue` |
 | `apps/aze-api/src/config/decorators/machine-to-machine.decorator.ts` | Keep the decorator if you want key auth; its only use is `POST /products`, which goes with the catalogue (ADR-0002) |
-| `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep |
+| `apps/aze-api-e2e/src/aze-api/perimeter.spec.ts` | Its machine-to-machine cases, and "protects a route that opts out of nothing", reference catalogue routes; point them at a route you keep and drop the `catalogueFixtureName` import |
+| `apps/aze-api-e2e/src/support/global-teardown.ts` | Drop the `cleanupE2ECatalogue` import and the `collectCleanupFailure(cleanupFailures, cleanupE2ECatalogue)` call; keep the Platform API port cleanup |
 | `apps/aze-api-e2e/src/aze-api/docs.spec.ts` | It pins the full endpoint list, which shrinks, the properties of the catalogue's schemas, and reads a real catalogue response against the one documented for it. Its Platform cases — the envelope, the auth routes, the current User — stay |
 | `apps/aze-client-e2e/src/session.spec.ts` | Its last two cases sign in and then read the catalogue; the rest are Platform and stay. The seeded credentials at the top go with the seed |
 | `apps/aze-client-e2e/src/appearance.spec.ts` | Platform — the shell, the tokens and the dark scheme all survive the catalogue. It signs in with the seeded credentials at the top, which go with the seed, and its heading and narrow-viewport cases visit `/catalogue` |

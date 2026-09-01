@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { catalogueFixtureName } from '../support/catalogue-namespace';
 import axios from 'axios';
 import { apiKey } from '../support/api-key';
 import { anyStatus, asUser, registerUser } from '../support/users';
@@ -52,14 +52,18 @@ describe('the API perimeter', () => {
       const user = await registerUser();
       const category = await axios.post(
         '/api/categories',
-        { name: `Widgets ${randomUUID()}` },
+        { name: catalogueFixtureName('Widgets') },
         asUser(user.accessToken),
       );
       expect(category.status).toBe(201);
 
       const res = await axios.post(
         '/api/products',
-        { name: `Widget ${randomUUID()}`, price: 9.99, categoryId: category.data.id },
+        {
+          name: catalogueFixtureName('Widget'),
+          price: 9.99,
+          categoryId: category.data.id,
+        },
         { headers: { 'x-api-key': apiKey() }, ...anyStatus },
       );
 

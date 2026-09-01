@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { catalogueFixtureName } from './catalogue-namespace';
 import axios from 'axios';
 import { apiKey } from './api-key';
 import { anyStatus, asUser } from './users';
@@ -14,7 +14,7 @@ const withKey = { headers: { 'x-api-key': apiKey() }, ...anyStatus };
 export async function createCategory(accessToken: string): Promise<number> {
   const res = await axios.post(
     '/api/categories',
-    { name: `Widgets ${randomUUID()}` },
+    { name: catalogueFixtureName('Widgets') },
     asUser(accessToken),
   );
   return res.data.id as number;
@@ -23,7 +23,7 @@ export async function createCategory(accessToken: string): Promise<number> {
 export async function createProduct(categoryId: number): Promise<string> {
   const res = await axios.post(
     '/api/products',
-    { name: `Widget ${randomUUID()}`, price: 9.99, categoryId },
+    { name: catalogueFixtureName('Widget'), price: 9.99, categoryId },
     withKey,
   );
   return res.data.id as string;

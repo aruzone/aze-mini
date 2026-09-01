@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import axios from 'axios';
 import { apiKey } from '../support/api-key';
+import { catalogueFixtureName } from '../support/catalogue-namespace';
 import { createCategory as newCategory } from '../support/catalogue';
 import { anyStatus, asUser, registerUser } from '../support/users';
 
@@ -25,7 +26,7 @@ async function createProduct() {
   const category = await createCategory();
   const res = await axios.post(
     '/api/products',
-    { name: `Widget ${randomUUID()}`, price: 9.99, categoryId: category.id },
+    { name: catalogueFixtureName('Widget'), price: 9.99, categoryId: category.id },
     withKey,
   );
   return { id: res.data.id as string, category };

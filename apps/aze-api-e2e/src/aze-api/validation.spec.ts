@@ -35,7 +35,7 @@ describe('request body validation', () => {
 
       const res = await axios.post(
         '/api/categories',
-        { name: `Widgets ${randomUUID()}`, [column]: 'chosen by the caller' },
+        { name: catalogueFixtureName('Widgets'), [column]: 'chosen by the caller' },
         asUser(user.accessToken),
       );
 
